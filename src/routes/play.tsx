@@ -28,7 +28,7 @@ type Phase = "loading" | "tutorial" | "playing" | "paused" | "dead" | "won";
 const WIN_BONUS: Record<GameMode, number> = { classic: 100, daily: 150, endless: 0 };
 
 function PlayScreen() {
-  const { mode } = Route.useSearch();
+  const { mode } = Route.useSearch() as { mode: GameMode };
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<BladeRunEngine | null>(null);
