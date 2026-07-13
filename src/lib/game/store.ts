@@ -38,8 +38,8 @@ interface DailyProgress {
 }
 
 export interface RunRecord {
-  mode: "classic" | "endless" | "daily";
-  score: number; // time (classic/daily, lower=better) or blades (endless, higher=better)
+  mode: "level" | "endless" | "daily";
+  score: number; // time (level/daily, lower=better) or blades (endless, higher=better)
   date: string;
 }
 
@@ -68,12 +68,16 @@ interface GameStore {
   tutorialSeen: boolean;
   records: RunRecord[];
   sessionDeaths: number;
+  /** highest level the player has unlocked in the Levels campaign (1..100) */
+  unlockedLevel: number;
+  /** best completion time per level number */
+  levelBestTimes: Record<number, number>;
 
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
   buyItem: (kind: "skin" | "trail" | "explosion" | "theme", id: string, price: number) => boolean;
   equip: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => void;
-  recordRun: (r: { mode: "classic" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number }) => string[];
+  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => string[];
   recordAdWatch: () => void;
   checkLogin: () => void;
   claimDailyReward: () => { ok: boolean; label: string };
@@ -146,6 +150,8 @@ export const useGameStore = create<GameStore>()(
       tutorialSeen: false,
       records: [],
       sessionDeaths: 0,
+      unlockedLevel: 1,
+      levelBestTimes: {},
 
       addCoins: (n) =>
         set((s) => ({
@@ -200,7 +206,7 @@ export const useGameStore = create<GameStore>()(
         set({ [key]: id } as Partial<GameStore>);
       },
 
-      recordRun: ({ mode, won, bladesPassed, coinsEarned, time, dashes }) => {
+      recordRun: ({ mode, won, bladesPassed, coinsEarned, time, dashes, level }) => {
         get().resetDailyIfNeeded();
         set((s) => {
           const stats = { ...s.stats };
@@ -209,7 +215,7 @@ export const useGameStore = create<GameStore>()(
           if (!won) stats.totalDeaths += 1;
           stats.bestBlade = Math.max(stats.bestBlade, bladesPassed);
           if (mode === "endless") stats.bestEndless = Math.max(stats.bestEndless, bladesPassed);
-          if (won && mode === "classic") {
+          if (won && mode === "level") {
             stats.classicWins += 1;
             if (s.sessionDeaths === 0) stats.flawlessWins += 1;
             if (stats.bestTime === null || time < stats.bestTime) stats.bestTime = time;
@@ -220,17 +226,29 @@ export const useGameStore = create<GameStore>()(
           const records = [...s.records, { mode, score: mode === "endless" ? bladesPassed : time, date: todayKey() }]
             .slice(-200);
 
+          // Level campaign progression: unlock the next level on a win.
+          let unlockedLevel = s.unlockedLevel;
+          const levelBestTimes = { ...s.levelBestTimes };
+          if (won && mode === "level" && level) {
+            unlockedLevel = Math.max(unlockedLevel, Math.min(100, level + 1));
+            if (levelBestTimes[level] === undefined || time < levelBestTimes[level]) {
+              levelBestTimes[level] = time;
+            }
+          }
+
           return {
             coins: s.coins + coinsEarned,
             stats,
             sessionDeaths: won ? s.sessionDeaths : s.sessionDeaths + 1,
             records,
+            unlockedLevel,
+            levelBestTimes,
             daily: {
               ...s.daily,
               runs: s.daily.runs + 1,
               bladesPassed: s.daily.bladesPassed + bladesPassed,
               coinsEarned: s.daily.coinsEarned + coinsEarned,
-              wins: s.daily.wins + (won && mode === "classic" ? 1 : 0),
+              wins: s.daily.wins + (won && mode === "level" ? 1 : 0),
               dashes: s.daily.dashes + dashes,
               dailyChallengeDone: s.daily.dailyChallengeDone || (won && mode === "daily"),
             },

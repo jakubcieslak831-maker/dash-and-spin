@@ -12,6 +12,10 @@ export interface SkinDef {
   metalness: number;
   roughness: number;
   premium?: boolean;
+  /** Limited edition — shown in a special shop section with a badge. */
+  limited?: boolean;
+  /** Short flavour label for limited items, e.g. "Season 1". */
+  limitedTag?: string;
 }
 
 export interface TrailDef {
@@ -20,6 +24,8 @@ export interface TrailDef {
   price: number;
   color: string;
   premium?: boolean;
+  limited?: boolean;
+  limitedTag?: string;
 }
 
 export interface ExplosionDef {
@@ -61,6 +67,9 @@ export const SKINS: SkinDef[] = [
   { id: "nova", name: "Nova", price: 2000, color: "#ffffff", emissive: "#8899ff", metalness: 0.9, roughness: 0.05 },
   { id: "eclipse", name: "Eclipse", price: 2500, color: "#111111", emissive: "#ff6600", metalness: 0.9, roughness: 0.1, premium: true },
   { id: "prism", name: "Prism", price: 3000, color: "#e0e0ff", emissive: "#00ffcc", metalness: 1, roughness: 0, premium: true },
+  // ---- Limited edition ----
+  { id: "aurelian", name: "Aurelian", price: 3500, color: "#ffcf5c", emissive: "#ff7b00", metalness: 1, roughness: 0.05, limited: true, limitedTag: "Season 1" },
+  { id: "midnight", name: "Midnight Bloom", price: 4000, color: "#b061ff", emissive: "#ff2fae", metalness: 0.8, roughness: 0.1, limited: true, limitedTag: "Season 1" },
 ];
 
 export const TRAILS: TrailDef[] = [
@@ -79,6 +88,8 @@ export const TRAILS: TrailDef[] = [
   { id: "ghost", name: "Ghost", price: 1000, color: "#ccccff" },
   { id: "neon", name: "Neon", price: 1200, color: "#ff00cc" },
   { id: "galaxy", name: "Galaxy", price: 1500, color: "#aa66ff", premium: true },
+  // ---- Limited edition ----
+  { id: "comet", name: "Comet", price: 2200, color: "#7cf9ff", limited: true, limitedTag: "Season 1" },
 ];
 
 export const EXPLOSIONS: ExplosionDef[] = [
