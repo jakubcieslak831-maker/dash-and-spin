@@ -133,12 +133,12 @@ function MainMenu() {
   );
 }
 
-function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: { mode: string }; label: string; sub: string; icon: string; big?: boolean }) {
+function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: { mode: "level" | "endless" | "daily"; level?: number }; label: string; sub: string; icon: string; big?: boolean }) {
   const haptics = useGameStore((s) => s.hapticsEnabled);
   return (
     <Link
       to="/play"
-      search={search as { mode: "classic" | "endless" | "daily" }}
+      search={search}
       onClick={() => {
         audio.play("click");
         if (haptics) haptic();
