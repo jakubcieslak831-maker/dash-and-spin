@@ -9,10 +9,10 @@ import { DAILY_REWARDS } from "@/lib/game/progression";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BladeRun — Dash Through the Blades" },
-      { name: "description", content: "BladeRun: a fast neon tunnel-runner. Dash through 15 spinning blades, beat the clock, and reach the treasure. Classic, Endless & Daily Challenge modes." },
-      { property: "og:title", content: "BladeRun — Dash Through the Blades" },
-      { property: "og:description", content: "A fast neon tunnel-runner. Dash through spinning blades and reach the treasure." },
+      { title: "BladeRun — Steer Through the Blades" },
+      { name: "description", content: "BladeRun: a fast neon tunnel-runner. Steer your ball through spinning blades across 100 levels. Level campaign, Endless & Daily Challenge modes." },
+      { property: "og:title", content: "BladeRun — Steer Through the Blades" },
+      { property: "og:description", content: "A fast neon tunnel-runner. Steer through spinning blades across 100 levels and reach the treasure." },
     ],
   }),
   component: MainMenu,
