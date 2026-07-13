@@ -73,7 +73,7 @@ function LeaderboardsPage() {
       )}
       {hydrated && playerScore === null && (
         <p className="mb-4 rounded-2xl border border-border bg-card px-5 py-3 text-center text-sm text-muted-foreground">
-          {mode === "classic" ? "Beat Classic Mode to enter the board!" : "Play Endless to set a score!"}
+          {mode === "classic" ? "Clear a level to enter the board!" : "Play Endless to set a score!"}
         </p>
       )}
 
