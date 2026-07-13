@@ -85,7 +85,12 @@ function ShopPage() {
             const isEquipped = equipped === item.id;
             const affordable = store.coins >= item.price;
             return (
-              <div key={item.id} className={`flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : "border-border"} bg-card`}>
+              <div key={item.id} className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : item.limited ? "border-gold/60" : "border-border"} bg-card`}>
+                {item.limited && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-gold/60 bg-background px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                    ✦ {item.limitedTag ?? "Limited"}
+                  </span>
+                )}
                 <div
                   className="h-14 w-14 rounded-full border-2 border-border"
                   style={{ background: `radial-gradient(circle at 35% 30%, ${item.color}, #000000cc)`, boxShadow: `0 0 18px ${item.color}66` }}
