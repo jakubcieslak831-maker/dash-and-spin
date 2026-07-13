@@ -1,19 +1,20 @@
 /**
  * BladeRunEngine — Three.js tunnel-runner core.
  *
- * A ball auto-rolls down a cylindrical tunnel; spinning fan blades block the
- * way, each with one or more gaps. The player taps to dash forward and time
- * their way through the gap as it sweeps past the bottom of the tunnel.
+ * A ball travels down a cylindrical tunnel at a *constant* forward speed.
+ * The player steers the ball around the inside of the tunnel (left/right) to
+ * line it up with the gap in each spinning fan blade before reaching it.
+ * Speed ramps up gradually in Endless and per-level in the Levels campaign.
  *
- * The engine is fully data-driven: obstacles implement the `Obstacle`
- * interface so future types (lasers, pistons, hammers…) can be added without
- * touching the core loop.
+ * The engine is data-driven: obstacles implement the `Obstacle` interface so
+ * future types (lasers, pistons, hammers…) can be added without touching the
+ * core loop.
  */
 import * as THREE from "three";
 import { mulberry32 } from "./rng";
 import type { SkinDef, TrailDef, ExplosionDef, ThemeDef } from "./cosmetics";
 
-export type GameMode = "classic" | "endless" | "daily";
+export type GameMode = "level" | "endless" | "daily";
 
 export interface EngineConfig {
   mode: GameMode;
@@ -22,10 +23,15 @@ export interface EngineConfig {
   trail: TrailDef;
   explosion: ExplosionDef;
   theme: ThemeDef;
+  /** Levels mode: which level and its tuning (from getLevelConfig). */
+  level?: number;
+  blades?: number;
+  speed?: number;
+  difficulty?: number;
 }
 
 export interface HudState {
-  timeLeft: number;
+  timeLeft: number; // interpreted as elapsed time (count-up) for display
   elapsed: number;
   blade: number;
   totalBlades: number;
@@ -38,15 +44,16 @@ export interface EngineCallbacks {
   onDash: () => void;
   onBladePass: (n: number) => void;
   onDeath: (bladesPassed: number, coins: number) => void;
-  onWin: (time: number, coins: number) => void;
+  onWin: (time: number, coins: number, blades: number) => void;
 }
 
 const TUNNEL_RADIUS = 3;
-const BALL_RADIUS = 0.28;
-const BLADE_SPACING = 16;
-const BASE_SPEED = 5.5;
-const DASH_SPEED = 26;
-const DASH_TIME = 0.32;
+const BALL_RADIUS = 0.3;
+/** radius the ball rides at, hugging the tunnel wall */
+const RIDE_R = TUNNEL_RADIUS - BALL_RADIUS - 0.08;
+const BLADE_SPACING = 14;
+/** how far a horizontal drag pixel rotates the ball around the tunnel */
+const STEER_SENSITIVITY = 0.011;
 
 /** Minimal obstacle contract — makes new obstacle types trivial to add. */
 interface Obstacle {
@@ -55,8 +62,8 @@ interface Obstacle {
   group: THREE.Group;
   passed: boolean;
   update(dt: number, elapsed: number): void;
-  /** Returns true if the ball (at bottom of tunnel) collides while crossing. */
-  collides(): boolean;
+  /** Returns true if the ball at world angle `ballPhi` collides while crossing. */
+  collides(ballPhi: number): boolean;
   dispose(): void;
 }
 
@@ -122,22 +129,20 @@ class FanBlade implements Obstacle {
     this.group.rotation.z = this.rot;
   }
 
-  collides(): boolean {
-    // Ball sits at the bottom of the tunnel → world angle -PI/2.
-    // Convert into blade-local angle and test against gaps.
+  collides(ballPhi: number): boolean {
+    // Convert the ball's world angle into blade-local angle and test gaps.
     const TWO_PI = Math.PI * 2;
-    let local = (-Math.PI / 2 - this.rot) % TWO_PI;
+    let local = (ballPhi - this.rot) % TWO_PI;
     if (local < 0) local += TWO_PI;
     // angular half-width of the ball at its radial distance
-    const ballAngle = Math.asin(BALL_RADIUS / (TUNNEL_RADIUS - BALL_RADIUS)) * 1.15;
+    const ballAngle = Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
     for (const g of this.spec.gaps) {
       let gs = g.start % TWO_PI;
       if (gs < 0) gs += TWO_PI;
       const margin = ballAngle;
-      // is `local` inside [gs+margin, gs+size-margin] (mod 2π)?
       let rel = (local - gs) % TWO_PI;
       if (rel < 0) rel += TWO_PI;
-      if (rel > margin && rel < g.size - margin) return false;
+      if (rel > margin && rel < g.size - margin) return false; // safely inside a gap
     }
     return true;
   }
@@ -162,7 +167,7 @@ export class BladeRunEngine {
   private tunnel: THREE.Mesh;
   private chest: THREE.Group | null = null;
   private obstacles: Obstacle[] = [];
-  private coinMeshes: { mesh: THREE.Mesh; z: number; taken: boolean }[] = [];
+  private coinMeshes: { mesh: THREE.Mesh; z: number; phi: number; taken: boolean }[] = [];
   private trailPoints: THREE.Points;
   private trailData: Float32Array;
   private trailIdx = 0;
@@ -174,14 +179,18 @@ export class BladeRunEngine {
   private cb: EngineCallbacks;
 
   private ballZ = 8;
-  private speed = BASE_SPEED;
-  private dashT = 0;
+  /** ball world angle around the tunnel; -PI/2 is the bottom */
+  private phi = -Math.PI / 2;
+  private targetPhi = -Math.PI / 2;
+  private speed = 6;
+  private baseSpeed = 6;
   private elapsed = 0;
   private timeLimit: number;
   private bladesPassed = 0;
   private totalBlades: number;
+  private difficulty: number;
   private coins = 0;
-  private dashes = 0;
+  private steers = 0;
   private running = false;
   private dead = false;
   private won = false;
@@ -193,17 +202,27 @@ export class BladeRunEngine {
   private nextEndlessIdx = 0;
   private hudAccum = 0;
 
+  /** kept for stats compatibility (counts steer inputs) */
   get dashCount() {
-    return this.dashes;
+    return this.steers;
   }
 
   constructor(canvas: HTMLCanvasElement, cfg: EngineConfig, cb: EngineCallbacks) {
     this.cfg = cfg;
     this.cb = cb;
     this.rng = mulberry32(cfg.seed);
-    this.totalBlades = cfg.mode === "endless" ? Infinity : 15;
-    this.timeLimit = cfg.mode === "endless" ? Infinity : cfg.mode === "daily" ? 70 : 75;
-    this.finishZ = cfg.mode === "endless" ? -Infinity : -(15 * BLADE_SPACING + 14);
+    this.difficulty = cfg.difficulty ?? (cfg.mode === "daily" ? 1.25 : 1);
+    this.baseSpeed = cfg.speed ?? (cfg.mode === "daily" ? 7 : 6.5);
+    this.speed = this.baseSpeed;
+
+    if (cfg.mode === "endless") {
+      this.totalBlades = Infinity;
+      this.finishZ = -Infinity;
+    } else {
+      this.totalBlades = cfg.blades ?? 15;
+      this.finishZ = -((this.totalBlades + 1) * BLADE_SPACING + 6);
+    }
+    this.timeLimit = Infinity; // survival-based; timer shown as count-up
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "low-power" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -215,7 +234,7 @@ export class BladeRunEngine {
     this.scene.fog = new THREE.Fog(new THREE.Color(theme.fog), 12, 70);
     this.scene.background = new THREE.Color(theme.fog);
 
-    // Tunnel — inside-out cylinder with subtle rings
+    // Tunnel — inside-out cylinder
     const tunnelGeo = new THREE.CylinderGeometry(TUNNEL_RADIUS, TUNNEL_RADIUS, 400, 24, 80, true);
     tunnelGeo.rotateX(Math.PI / 2);
     const tunnelMat = new THREE.MeshStandardMaterial({
@@ -223,13 +242,12 @@ export class BladeRunEngine {
       side: THREE.BackSide,
       metalness: 0.3,
       roughness: 0.8,
-      wireframe: false,
     });
     this.tunnel = new THREE.Mesh(tunnelGeo, tunnelMat);
     this.tunnel.position.z = -150;
     this.scene.add(this.tunnel);
 
-    // Guide rings every BLADE_SPACING for depth perception
+    // Guide rings for depth perception
     const ringMat = new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.16 });
     for (let i = 0; i < 24; i++) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(TUNNEL_RADIUS - 0.02, 0.03, 6, 40), ringMat);
@@ -284,13 +302,14 @@ export class BladeRunEngine {
 
   private bladeSpec(i: number): BladeSpec {
     const r = this.rng;
-    const difficulty = this.cfg.mode === "daily" ? 1.25 : 1;
-    // speed ramps up with index; later blades may reverse & wobble
-    const base = (0.9 + i * 0.16) * difficulty;
-    const dirFlip = i >= 6 && r() < 0.35 ? -1 : 1;
-    const gapCount = i >= 10 && r() < 0.4 ? 2 : 1;
-    // gaps shrink from ~95° to ~48°
-    const gapSize = THREE.MathUtils.degToRad(Math.max(46, 95 - i * 3.2) / gapCount / (gapCount > 1 ? 0.8 : 1));
+    const d = this.difficulty;
+    // blade rotation speed ramps with index and difficulty
+    const base = (0.6 + i * 0.07) * d;
+    const dirFlip = i >= 5 && r() < 0.4 ? -1 : 1;
+    const gapCount = i >= 8 && r() < 0.35 * d ? 2 : 1;
+    // gaps shrink with progress + difficulty, floored so they stay steerable
+    const gapDeg = Math.max(42, 100 - i * 2.6 - (d - 1) * 30);
+    const gapSize = THREE.MathUtils.degToRad(gapDeg / (gapCount > 1 ? 1.7 : 1));
     const gaps: { start: number; size: number }[] = [];
     const first = r() * Math.PI * 2;
     for (let g = 0; g < gapCount; g++) {
@@ -299,7 +318,7 @@ export class BladeRunEngine {
     return {
       gaps,
       speed: base * dirFlip,
-      wobble: i >= 8 && r() < 0.4 ? 0.45 : 0,
+      wobble: i >= 7 && r() < 0.4 ? 0.4 : 0,
       startRot: r() * Math.PI * 2,
     };
   }
@@ -307,20 +326,22 @@ export class BladeRunEngine {
   private addBlade(i: number) {
     const z = -(i + 1) * BLADE_SPACING;
     this.obstacles.push(new FanBlade(z, i, this.bladeSpec(i), this.cfg.theme.blade, this.scene));
-    // coin between blades (60% chance)
+    // coin between blades (60% chance), placed at a random angle to reward steering
     if (this.rng() < 0.6) {
+      const phi = this.rng() * Math.PI * 2;
       const coin = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.22, 0.22, 0.06, 16).rotateZ(Math.PI / 2),
+        new THREE.CylinderGeometry(0.22, 0.22, 0.06, 16).rotateX(Math.PI / 2),
         new THREE.MeshStandardMaterial({ color: "#ffd700", emissive: "#aa7700", emissiveIntensity: 0.7, metalness: 1, roughness: 0.2 }),
       );
-      coin.position.set(0, -(TUNNEL_RADIUS - 0.6), z + BLADE_SPACING / 2);
+      const cz = z + BLADE_SPACING / 2;
+      coin.position.set(RIDE_R * Math.cos(phi), RIDE_R * Math.sin(phi), cz);
       this.scene.add(coin);
-      this.coinMeshes.push({ mesh: coin, z: coin.position.z, taken: false });
+      this.coinMeshes.push({ mesh: coin, z: cz, phi, taken: false });
     }
   }
 
   private buildLevel() {
-    const initial = this.cfg.mode === "endless" ? 8 : 15;
+    const initial = this.cfg.mode === "endless" ? 8 : this.totalBlades;
     for (let i = 0; i < initial; i++) this.addBlade(i);
     this.nextEndlessIdx = initial;
   }
@@ -337,7 +358,7 @@ export class BladeRunEngine {
     glow.position.y = 0.7;
     const band = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.05, 0.2), gold);
     g.add(body, lid, glow, band);
-    g.position.set(0, -(TUNNEL_RADIUS - 0.7), this.finishZ - 2);
+    g.position.set(0, -(TUNNEL_RADIUS - 0.7), this.finishZ + 3);
     const light = new THREE.PointLight(0xffd700, 20, 18);
     light.position.copy(g.position).add(new THREE.Vector3(0, 1, 2));
     this.scene.add(g, light);
@@ -370,10 +391,12 @@ export class BladeRunEngine {
     this.lastT = performance.now();
   }
 
-  dash() {
+  /** Steer the ball around the tunnel. `dx` is a horizontal drag delta (px). */
+  steer(dx: number) {
     if (!this.running || this.dead || this.won) return;
-    this.dashT = DASH_TIME;
-    this.dashes++;
+    if (dx === 0) return;
+    this.targetPhi += dx * STEER_SENSITIVITY;
+    this.steers++;
     this.cb.onDash();
   }
 
@@ -411,21 +434,24 @@ export class BladeRunEngine {
     this.elapsed += dt;
     if (this.invulnT > 0) this.invulnT -= dt;
 
-    // endless gets gradually faster
-    const endlessBoost = this.cfg.mode === "endless" ? Math.min(4, this.bladesPassed * 0.12) : 0;
-    let v = BASE_SPEED + endlessBoost;
-    if (this.dashT > 0) {
-      this.dashT -= dt;
-      v = DASH_SPEED + endlessBoost;
+    // endless gets gradually faster; levels use a fixed per-level speed
+    const endlessBoost = this.cfg.mode === "endless" ? Math.min(6, this.bladesPassed * 0.14) : 0;
+    this.speed = this.baseSpeed + endlessBoost;
+    this.ballZ -= this.speed * dt;
+
+    // smooth steering toward target angle
+    this.phi += (this.targetPhi - this.phi) * (1 - Math.pow(0.0005, dt));
+
+    // endless difficulty ramps with distance
+    if (this.cfg.mode === "endless") {
+      this.difficulty = 1 + Math.min(1.6, this.bladesPassed * 0.03);
     }
-    this.speed = v;
-    this.ballZ -= v * dt;
 
     // obstacles
     for (const o of this.obstacles) {
       o.update(dt, this.elapsed);
-      if (!o.passed && this.ballZ - BALL_RADIUS < o.z + 0.15 && this.ballZ + BALL_RADIUS > o.z - 0.35) {
-        if (this.invulnT <= 0 && o.collides()) {
+      if (!o.passed && this.ballZ - BALL_RADIUS < o.z + 0.2 && this.ballZ + BALL_RADIUS > o.z - 0.35) {
+        if (this.invulnT <= 0 && o.collides(this.phi)) {
           this.die();
           return;
         }
@@ -436,7 +462,6 @@ export class BladeRunEngine {
         this.cb.onBladePass(this.bladesPassed);
         if (this.cfg.mode === "endless") {
           this.coins += 2;
-          // spawn ahead, cull behind
           this.addBlade(this.nextEndlessIdx++);
         }
       }
@@ -448,29 +473,29 @@ export class BladeRunEngine {
       }
     }
 
-    // coins
+    // coins — must be near in Z *and* angle now
+    const ballX = RIDE_R * Math.cos(this.phi);
+    const ballY = RIDE_R * Math.sin(this.phi);
     for (const c of this.coinMeshes) {
       if (!c.taken) {
-        c.mesh.rotation.y += 4 * dt;
+        c.mesh.rotation.z += 4 * dt;
         if (Math.abs(this.ballZ - c.z) < 0.7) {
-          c.taken = true;
-          c.mesh.visible = false;
-          this.coins += 5;
-          this.cb.onCoin();
+          const dx = ballX - c.mesh.position.x;
+          const dy = ballY - c.mesh.position.y;
+          if (dx * dx + dy * dy < 0.9 * 0.9) {
+            c.taken = true;
+            c.mesh.visible = false;
+            this.coins += 5;
+            this.cb.onCoin();
+          }
         }
       }
     }
 
     // win
-    if (this.ballZ <= this.finishZ) {
+    if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ) {
       this.won = true;
-      this.cb.onWin(this.elapsed, this.coins);
-      return;
-    }
-
-    // timer
-    if (this.timeLimit !== Infinity && this.elapsed >= this.timeLimit) {
-      this.die();
+      this.cb.onWin(this.elapsed, this.coins, this.totalBlades);
       return;
     }
 
@@ -479,10 +504,10 @@ export class BladeRunEngine {
     if (this.hudAccum > 0.12) {
       this.hudAccum = 0;
       this.cb.onHud({
-        timeLeft: this.timeLimit === Infinity ? this.elapsed : Math.max(0, this.timeLimit - this.elapsed),
+        timeLeft: this.elapsed,
         elapsed: this.elapsed,
         blade: this.bladesPassed,
-        totalBlades: this.cfg.mode === "endless" ? -1 : 15,
+        totalBlades: this.cfg.mode === "endless" ? -1 : this.totalBlades,
         coins: this.coins,
       });
     }
@@ -521,20 +546,21 @@ export class BladeRunEngine {
   /* ---------------- rendering ---------------- */
 
   private render(dt: number) {
-    // ball placement + rolling
-    const y = -(TUNNEL_RADIUS - BALL_RADIUS - 0.02);
-    this.ball.position.set(0, y, this.ballZ);
+    // ball placement around the tunnel + rolling
+    const x = RIDE_R * Math.cos(this.phi);
+    const y = RIDE_R * Math.sin(this.phi);
+    this.ball.position.set(x, y, this.ballZ);
     this.ball.rotation.x -= (this.speed / BALL_RADIUS) * dt;
-    this.ballLight.position.set(0, y + 1.4, this.ballZ + 1);
+    this.ballLight.position.set(x * 0.6, y * 0.6, this.ballZ + 1);
 
     // invulnerability blink
     if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
     else if (!this.dead) this.ball.visible = true;
 
-    // trail ring buffer
+    // trail ring buffer (emits at ball position)
     if (this.running && !this.dead && this.cfg.trail.id !== "none") {
       const i = this.trailIdx++ % (this.trailData.length / 3);
-      this.trailData[i * 3] = (Math.random() - 0.5) * 0.15;
+      this.trailData[i * 3] = x + (Math.random() - 0.5) * 0.15;
       this.trailData[i * 3 + 1] = y + (Math.random() - 0.5) * 0.15;
       this.trailData[i * 3 + 2] = this.ballZ + 0.25;
       (this.trailPoints.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
@@ -559,7 +585,7 @@ export class BladeRunEngine {
     // tunnel follows ball so it never ends
     this.tunnel.position.z = this.ballZ - 150;
 
-    // camera: smooth follow + shake
+    // camera: centered behind, leaning slightly toward the ball, + shake
     let sx = 0,
       sy = 0;
     if (this.shakeT > 0) {
@@ -568,9 +594,9 @@ export class BladeRunEngine {
       sx = (Math.random() - 0.5) * s;
       sy = (Math.random() - 0.5) * s;
     }
-    const target = new THREE.Vector3(sx, y + 1.5 + sy, this.ballZ + 4.6);
+    const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
     this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
-    this.camera.lookAt(0, y + 0.6, this.ballZ - 6);
+    this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
 
     this.renderer.render(this.scene, this.camera);
   }

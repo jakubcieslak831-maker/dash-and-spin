@@ -5,19 +5,21 @@ import { useGameStore } from "@/lib/game/store";
 import { skinById, trailById, explosionById, themeById } from "@/lib/game/cosmetics";
 import { audio, haptic } from "@/lib/game/audio";
 import { dailySeed } from "@/lib/game/rng";
+import { getLevelConfig, MAX_LEVEL } from "@/lib/game/levels";
 import { AdModal } from "@/components/game/AdModal";
 import { GameButton } from "@/components/game/MenuShell";
 
 export const Route = createFileRoute("/play")({
-  validateSearch: (s: Record<string, unknown>): { mode: GameMode } => ({
-    mode: s.mode === "endless" || s.mode === "daily" ? s.mode : "classic",
+  validateSearch: (s: Record<string, unknown>): { mode: GameMode; level?: number } => ({
+    mode: s.mode === "endless" || s.mode === "daily" ? s.mode : "level",
+    level: typeof s.level === "number" ? s.level : s.level ? Number(s.level) : undefined,
   }),
   head: () => ({
     meta: [
       { title: "Play — BladeRun" },
-      { name: "description", content: "Dash through spinning blades and reach the treasure chest before time runs out." },
+      { name: "description", content: "Steer your ball through spinning blades and reach the treasure chest." },
       { property: "og:title", content: "Play BladeRun" },
-      { property: "og:description", content: "Dash through spinning blades before time runs out." },
+      { property: "og:description", content: "Steer through spinning blades and reach the treasure." },
     ],
   }),
   component: PlayScreen,
@@ -25,15 +27,18 @@ export const Route = createFileRoute("/play")({
 
 type Phase = "loading" | "tutorial" | "playing" | "paused" | "dead" | "won";
 
-const WIN_BONUS: Record<GameMode, number> = { classic: 100, daily: 150, endless: 0 };
+const WIN_BONUS: Record<GameMode, number> = { level: 100, daily: 150, endless: 0 };
 
 function PlayScreen() {
-  const { mode } = Route.useSearch() as { mode: GameMode };
+  const search = Route.useSearch() as { mode: GameMode; level?: number };
+  const mode = search.mode;
   const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<BladeRunEngine | null>(null);
+  const lastX = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
-  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 15, coins: 0 });
+  const [level, setLevel] = useState<number>(() => search.level ?? useGameStore.getState().unlockedLevel);
+  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 0, coins: 0 });
   const [result, setResult] = useState<{ blades: number; coins: number; time: number; won: boolean } | null>(null);
   const [ad, setAd] = useState<null | "continue" | "double" | "interstitial">(null);
   const usedContinue = useRef(false);
@@ -49,7 +54,26 @@ function PlayScreen() {
     if (!canvas) return;
     const s = store.getState();
     audio.setVolumes(s.musicVolume, s.sfxVolume);
-    const seed = mode === "daily" ? dailySeed() : Math.floor(Math.random() * 1e9);
+
+    // per-mode tuning
+    let seed: number;
+    let blades: number | undefined;
+    let speed: number | undefined;
+    let difficulty: number | undefined;
+    if (mode === "level") {
+      const lc = getLevelConfig(level);
+      seed = lc.seed;
+      blades = lc.blades;
+      speed = lc.speed;
+      difficulty = lc.difficulty;
+    } else if (mode === "daily") {
+      seed = dailySeed();
+      blades = 18;
+      speed = 7.5;
+      difficulty = 1.3;
+    } else {
+      seed = Math.floor(Math.random() * 1e9);
+    }
 
     let engine: BladeRunEngine;
     try {
@@ -58,6 +82,10 @@ function PlayScreen() {
         {
           mode,
           seed,
+          level: mode === "level" ? level : undefined,
+          blades,
+          speed,
+          difficulty,
           skin: skinById(s.equippedSkin),
           trail: trailById(s.equippedTrail),
           explosion: explosionById(s.equippedExplosion),
@@ -69,20 +97,20 @@ function PlayScreen() {
             audio.play("coin");
             if (store.getState().hapticsEnabled) haptic(8);
           },
-          onDash: () => audio.play("dash"),
+          onDash: () => {},
           onBladePass: () => audio.play("whoosh"),
-          onDeath: (blades, coins) => {
+          onDeath: (bladesPassed, coins) => {
             audio.play("lose");
             audio.stopMusic();
             if (store.getState().hapticsEnabled) haptic([60, 40, 80]);
-            setResult({ blades, coins, time: 0, won: false });
+            setResult({ blades: bladesPassed, coins, time: 0, won: false });
             setPhase("dead");
           },
-          onWin: (time, coins) => {
+          onWin: (time, coins, totalBlades) => {
             audio.play("win");
             audio.stopMusic();
             if (store.getState().hapticsEnabled) haptic([30, 30, 30, 30, 60]);
-            setResult({ blades: 15, coins, time, won: true });
+            setResult({ blades: totalBlades, coins, time, won: true });
             setPhase("won");
           },
         },
@@ -120,20 +148,13 @@ function PlayScreen() {
       engineRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, runKey]);
+  }, [mode, level, runKey]);
 
   const beginRun = (engine: BladeRunEngine) => {
     setPhase("playing");
     engine.start();
     if (store.getState().musicVolume > 0) audio.startMusic("game");
   };
-
-  /** Record run results into the save exactly once per run. */
-  useEffect(() => {
-    if ((phase === "dead" || phase === "won") && result && !recorded.current) {
-      // dead phase might still be revived — only record when the player commits.
-    }
-  }, [phase, result]);
 
   const commitRun = useCallback(
     (extraCoins = 0) => {
@@ -150,9 +171,10 @@ function PlayScreen() {
         coinsEarned: earned,
         time: result.time,
         dashes: engineRef.current?.dashCount ?? 0,
+        level: mode === "level" ? level : undefined,
       });
     },
-    [result, mode, store],
+    [result, mode, level, store],
   );
 
   const totalEarned = (() => {
@@ -164,23 +186,48 @@ function PlayScreen() {
     return e;
   })();
 
-  const tap = useCallback(() => {
-    if (phase === "playing") {
-      engineRef.current?.dash();
-      if (store.getState().hapticsEnabled) haptic(10);
-    }
-  }, [phase, store]);
+  /* ---- steering input (drag left/right to move the ball around the tunnel) ---- */
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    lastX.current = e.clientX;
+  }, []);
+
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (lastX.current === null) return;
+    const dx = e.clientX - lastX.current;
+    lastX.current = e.clientX;
+    engineRef.current?.steer(dx);
+  }, []);
+
+  const onPointerUp = useCallback(() => {
+    lastX.current = null;
+  }, []);
+
+  // keyboard steering for desktop testing
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowLeft") engineRef.current?.steer(-24);
+      else if (e.key === "ArrowRight") engineRef.current?.steer(24);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const restart = () => {
     commitRun();
     const s = store.getState();
     const runs = s.stats.totalRuns;
-    // interstitial every 4 completed runs (skipped for premium / remove-ads)
     if (!s.adsRemoved && !s.premium && runs > 0 && runs % 4 === 0) {
       setAd("interstitial");
     } else {
       setRunKey((k) => k + 1);
     }
+  };
+
+  const nextLevel = () => {
+    commitRun();
+    const next = Math.min(MAX_LEVEL, level + 1);
+    setLevel(next);
+    setRunKey((k) => k + 1);
   };
 
   const goHome = () => {
@@ -194,20 +241,26 @@ function PlayScreen() {
     return m > 0 ? `${m}:${sec.padStart(4, "0")}` : `${sec}s`;
   };
 
-  const timeCritical = mode !== "endless" && hud.timeLeft < 15;
+  const canAdvance = mode === "level" && level < MAX_LEVEL;
 
   return (
-    <div className="fixed inset-0 bg-background" onPointerDown={tap}>
+    <div
+      className="fixed inset-0 touch-none bg-background"
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+    >
       <canvas ref={canvasRef} className="h-full w-full" style={{ touchAction: "none" }} />
 
       {/* HUD */}
       {(phase === "playing" || phase === "paused") && (
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 pt-[max(1rem,env(safe-area-inset-top))]">
           <div className="rounded-2xl bg-background/60 px-4 py-2 backdrop-blur-sm">
-            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{mode === "endless" ? "Time" : "Time left"}</div>
-            <div className={`font-display text-xl font-bold tabular-nums ${timeCritical ? "animate-pulse text-destructive" : "text-foreground"}`}>
-              {fmt(hud.timeLeft)}
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {mode === "level" ? `Level ${level}` : mode === "daily" ? "Daily" : "Endless"}
             </div>
+            <div className="font-display text-xl font-bold tabular-nums text-foreground">{fmt(hud.elapsed)}</div>
           </div>
           <div className="flex flex-col items-center gap-1 rounded-2xl bg-background/60 px-4 py-2 backdrop-blur-sm">
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Blade</div>
@@ -250,13 +303,13 @@ function PlayScreen() {
       {phase === "tutorial" && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm">
           <div className="mx-6 w-full max-w-sm rounded-3xl border border-border bg-card p-7 text-center">
-            <div className="mb-3 text-5xl" aria-hidden>👆</div>
+            <div className="mb-3 text-5xl" aria-hidden>👈👉</div>
             <h2 className="font-display text-xl font-bold uppercase tracking-widest">How to play</h2>
             <ul className="mt-4 space-y-2 text-left text-sm text-muted-foreground">
-              <li>⚡ Your ball rolls forward automatically.</li>
-              <li>👆 <b className="text-foreground">Tap anywhere</b> to dash forward.</li>
-              <li>🌀 Time your dash to slip through the gap in each spinning blade.</li>
-              <li>⏱ Reach the treasure chest before time runs out!</li>
+              <li>⚡ Your ball rolls forward at a steady speed.</li>
+              <li>👆 <b className="text-foreground">Drag left or right</b> to steer it around the tunnel.</li>
+              <li>🌀 Guide the ball into the gap of each spinning blade.</li>
+              <li>🪙 Grab coins and reach the treasure chest to clear the level!</li>
             </ul>
             <GameButton
               className="mt-6 w-full"
@@ -329,7 +382,9 @@ function PlayScreen() {
         <div className="absolute inset-0 flex items-center justify-center bg-background/85 backdrop-blur-sm">
           <div className="glow-primary mx-6 flex w-full max-w-xs flex-col gap-3 rounded-3xl border border-primary/40 bg-card p-7 text-center">
             <div className="animate-float text-5xl" aria-hidden>🏆</div>
-            <h2 className="text-glow font-display text-2xl font-black uppercase tracking-widest text-primary">Treasure!</h2>
+            <h2 className="text-glow font-display text-2xl font-black uppercase tracking-widest text-primary">
+              {mode === "level" ? `Level ${level} Clear!` : "Treasure!"}
+            </h2>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Stat label="Time" value={fmt(result.time)} />
               <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
@@ -339,7 +394,18 @@ function PlayScreen() {
                 📺 Double coins
               </GameButton>
             )}
-            <GameButton onClick={restart}>Play again</GameButton>
+            {canAdvance ? (
+              <GameButton onClick={nextLevel}>Next level →</GameButton>
+            ) : mode === "level" ? (
+              <GameButton onClick={goHome}>All levels done! 🎉</GameButton>
+            ) : (
+              <GameButton onClick={restart}>Play again</GameButton>
+            )}
+            {canAdvance && (
+              <GameButton variant="ghost" onClick={restart}>
+                Replay level
+              </GameButton>
+            )}
             <GameButton variant="ghost" onClick={goHome}>
               Main menu
             </GameButton>

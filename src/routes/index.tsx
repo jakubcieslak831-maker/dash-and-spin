@@ -9,10 +9,10 @@ import { DAILY_REWARDS } from "@/lib/game/progression";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "BladeRun — Dash Through the Blades" },
-      { name: "description", content: "BladeRun: a fast neon tunnel-runner. Dash through 15 spinning blades, beat the clock, and reach the treasure. Classic, Endless & Daily Challenge modes." },
-      { property: "og:title", content: "BladeRun — Dash Through the Blades" },
-      { property: "og:description", content: "A fast neon tunnel-runner. Dash through spinning blades and reach the treasure." },
+      { title: "BladeRun — Steer Through the Blades" },
+      { name: "description", content: "BladeRun: a fast neon tunnel-runner. Steer your ball through spinning blades across 100 levels. Level campaign, Endless & Daily Challenge modes." },
+      { property: "og:title", content: "BladeRun — Steer Through the Blades" },
+      { property: "og:description", content: "A fast neon tunnel-runner. Steer through spinning blades across 100 levels and reach the treasure." },
     ],
   }),
   component: MainMenu,
@@ -70,7 +70,7 @@ function MainMenu() {
         <h1 className="text-glow font-display text-5xl font-black uppercase italic tracking-tight">
           Blade<span className="text-primary">Run</span>
         </h1>
-        <p className="mt-2 text-sm uppercase tracking-[0.3em] text-muted-foreground">Dash through the blades</p>
+        <p className="mt-2 text-sm uppercase tracking-[0.3em] text-muted-foreground">Steer through the blades</p>
       </div>
 
       {/* Daily reward banner */}
@@ -89,23 +89,31 @@ function MainMenu() {
 
       {/* Play buttons */}
       <nav className="mt-8 flex w-full max-w-lg flex-col gap-3">
-        <PlayLink to="/play" search={{ mode: "classic" }} big label="Play" sub="Classic • 15 blades" icon="▶" />
+        <PlayLink
+          to="/play"
+          search={{ mode: "level", level: hydrated ? store.unlockedLevel : 1 }}
+          big
+          label={hydrated ? `Play Level ${store.unlockedLevel}` : "Play"}
+          sub={`Campaign • ${hydrated ? store.unlockedLevel : 1}/100`}
+          icon="▶"
+        />
         <div className="grid grid-cols-2 gap-3">
-          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Survive forever" icon="∞" />
+          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Speeds up forever" icon="∞" />
           <PlayLink to="/play" search={{ mode: "daily" }} label="Daily" sub={hydrated && store.daily.dailyChallengeDone ? "Completed ✓" : "New challenge"} icon="📅" />
         </div>
         <div className="mt-2 grid grid-cols-2 gap-3">
+          <NavCard to="/levels" icon="🗺️" label="Levels" />
           <NavCard to="/shop" icon="🛍️" label="Shop" />
           <NavCard to="/missions" icon="🎯" label="Missions" />
           <NavCard to="/leaderboards" icon="🏆" label="Ranks" />
           <NavCard to="/achievements" icon="🏅" label="Awards" />
+          <NavCard to="/settings" icon="⚙️" label="Settings" />
         </div>
-        <NavCard to="/settings" icon="⚙️" label="Settings" wide />
       </nav>
 
       {hydrated && (
         <p className="mt-6 text-xs text-muted-foreground">
-          Best time: {store.stats.bestTime ? `${store.stats.bestTime.toFixed(1)}s` : "—"} · Endless best: {store.stats.bestEndless} blades
+          Level {store.unlockedLevel}/100 · Endless best: {store.stats.bestEndless} blades
         </p>
       )}
 
@@ -125,12 +133,12 @@ function MainMenu() {
   );
 }
 
-function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: { mode: string }; label: string; sub: string; icon: string; big?: boolean }) {
+function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: { mode: "level" | "endless" | "daily"; level?: number }; label: string; sub: string; icon: string; big?: boolean }) {
   const haptics = useGameStore((s) => s.hapticsEnabled);
   return (
     <Link
       to="/play"
-      search={search as { mode: "classic" | "endless" | "daily" }}
+      search={search}
       onClick={() => {
         audio.play("click");
         if (haptics) haptic();

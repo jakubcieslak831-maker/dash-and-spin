@@ -34,12 +34,12 @@ function ShopPage() {
 
   const items =
     tab === "skin"
-      ? SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, color: s.color, extra: "" }))
+      ? SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }))
       : tab === "trail"
-        ? TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.color, extra: "" }))
+        ? TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }))
         : tab === "explosion"
-          ? EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, color: e.colors[0], extra: "" }))
-          : THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.accent, extra: t.emoji }));
+          ? EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, color: e.colors[0], extra: "", limited: false, limitedTag: undefined }))
+          : THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.accent, extra: t.emoji, limited: false, limitedTag: undefined }));
 
   const ownedKey = tab === "skin" ? store.ownedSkins : tab === "trail" ? store.ownedTrails : tab === "explosion" ? store.ownedExplosions : store.ownedThemes;
   const equipped = tab === "skin" ? store.equippedSkin : tab === "trail" ? store.equippedTrail : tab === "explosion" ? store.equippedExplosion : store.equippedTheme;
@@ -85,7 +85,12 @@ function ShopPage() {
             const isEquipped = equipped === item.id;
             const affordable = store.coins >= item.price;
             return (
-              <div key={item.id} className={`flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : "border-border"} bg-card`}>
+              <div key={item.id} className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : item.limited ? "border-gold/60" : "border-border"} bg-card`}>
+                {item.limited && (
+                  <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-gold/60 bg-background px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                    ✦ {item.limitedTag ?? "Limited"}
+                  </span>
+                )}
                 <div
                   className="h-14 w-14 rounded-full border-2 border-border"
                   style={{ background: `radial-gradient(circle at 35% 30%, ${item.color}, #000000cc)`, boxShadow: `0 0 18px ${item.color}66` }}

@@ -14,6 +14,7 @@ import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as MissionsRouteImport } from './routes/missions'
+import { Route as LevelsRouteImport } from './routes/levels'
 import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as AchievementsRouteImport } from './routes/achievements'
 import { Route as IndexRouteImport } from './routes/index'
@@ -43,6 +44,11 @@ const MissionsRoute = MissionsRouteImport.update({
   path: '/missions',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LevelsRoute = LevelsRouteImport.update({
+  id: '/levels',
+  path: '/levels',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LeaderboardsRoute = LeaderboardsRouteImport.update({
   id: '/leaderboards',
   path: '/leaderboards',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/leaderboards': typeof LeaderboardsRoute
+  '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
   '/settings': typeof SettingsRoute
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/leaderboards': typeof LeaderboardsRoute
+  '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
   '/settings': typeof SettingsRoute
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/achievements': typeof AchievementsRoute
   '/leaderboards': typeof LeaderboardsRoute
+  '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
   '/settings': typeof SettingsRoute
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/leaderboards'
+    | '/levels'
     | '/missions'
     | '/play'
     | '/settings'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/leaderboards'
+    | '/levels'
     | '/missions'
     | '/play'
     | '/settings'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/achievements'
     | '/leaderboards'
+    | '/levels'
     | '/missions'
     | '/play'
     | '/settings'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AchievementsRoute: typeof AchievementsRoute
   LeaderboardsRoute: typeof LeaderboardsRoute
+  LevelsRoute: typeof LevelsRoute
   MissionsRoute: typeof MissionsRoute
   PlayRoute: typeof PlayRoute
   SettingsRoute: typeof SettingsRoute
@@ -171,6 +184,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MissionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/levels': {
+      id: '/levels'
+      path: '/levels'
+      fullPath: '/levels'
+      preLoaderRoute: typeof LevelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/leaderboards': {
       id: '/leaderboards'
       path: '/leaderboards'
@@ -199,6 +219,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AchievementsRoute: AchievementsRoute,
   LeaderboardsRoute: LeaderboardsRoute,
+  LevelsRoute: LevelsRoute,
   MissionsRoute: MissionsRoute,
   PlayRoute: PlayRoute,
   SettingsRoute: SettingsRoute,
