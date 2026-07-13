@@ -70,7 +70,7 @@ function MainMenu() {
         <h1 className="text-glow font-display text-5xl font-black uppercase italic tracking-tight">
           Blade<span className="text-primary">Run</span>
         </h1>
-        <p className="mt-2 text-sm uppercase tracking-[0.3em] text-muted-foreground">Dash through the blades</p>
+        <p className="mt-2 text-sm uppercase tracking-[0.3em] text-muted-foreground">Steer through the blades</p>
       </div>
 
       {/* Daily reward banner */}
