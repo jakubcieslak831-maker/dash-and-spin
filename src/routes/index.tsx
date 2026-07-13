@@ -89,23 +89,31 @@ function MainMenu() {
 
       {/* Play buttons */}
       <nav className="mt-8 flex w-full max-w-lg flex-col gap-3">
-        <PlayLink to="/play" search={{ mode: "classic" }} big label="Play" sub="Classic • 15 blades" icon="▶" />
+        <PlayLink
+          to="/play"
+          search={{ mode: "level", level: hydrated ? store.unlockedLevel : 1 }}
+          big
+          label={hydrated ? `Play Level ${store.unlockedLevel}` : "Play"}
+          sub={`Campaign • ${hydrated ? store.unlockedLevel : 1}/100`}
+          icon="▶"
+        />
         <div className="grid grid-cols-2 gap-3">
-          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Survive forever" icon="∞" />
+          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Speeds up forever" icon="∞" />
           <PlayLink to="/play" search={{ mode: "daily" }} label="Daily" sub={hydrated && store.daily.dailyChallengeDone ? "Completed ✓" : "New challenge"} icon="📅" />
         </div>
         <div className="mt-2 grid grid-cols-2 gap-3">
+          <NavCard to="/levels" icon="🗺️" label="Levels" />
           <NavCard to="/shop" icon="🛍️" label="Shop" />
           <NavCard to="/missions" icon="🎯" label="Missions" />
           <NavCard to="/leaderboards" icon="🏆" label="Ranks" />
           <NavCard to="/achievements" icon="🏅" label="Awards" />
+          <NavCard to="/settings" icon="⚙️" label="Settings" />
         </div>
-        <NavCard to="/settings" icon="⚙️" label="Settings" wide />
       </nav>
 
       {hydrated && (
         <p className="mt-6 text-xs text-muted-foreground">
-          Best time: {store.stats.bestTime ? `${store.stats.bestTime.toFixed(1)}s` : "—"} · Endless best: {store.stats.bestEndless} blades
+          Level {store.unlockedLevel}/100 · Endless best: {store.stats.bestEndless} blades
         </p>
       )}
 
