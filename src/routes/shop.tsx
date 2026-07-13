@@ -34,12 +34,12 @@ function ShopPage() {
 
   const items =
     tab === "skin"
-      ? SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, color: s.color, extra: "" }))
+      ? SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }))
       : tab === "trail"
-        ? TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.color, extra: "" }))
+        ? TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }))
         : tab === "explosion"
-          ? EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, color: e.colors[0], extra: "" }))
-          : THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.accent, extra: t.emoji }));
+          ? EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, color: e.colors[0], extra: "", limited: false, limitedTag: undefined }))
+          : THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.accent, extra: t.emoji, limited: false, limitedTag: undefined }));
 
   const ownedKey = tab === "skin" ? store.ownedSkins : tab === "trail" ? store.ownedTrails : tab === "explosion" ? store.ownedExplosions : store.ownedThemes;
   const equipped = tab === "skin" ? store.equippedSkin : tab === "trail" ? store.equippedTrail : tab === "explosion" ? store.equippedExplosion : store.equippedTheme;
