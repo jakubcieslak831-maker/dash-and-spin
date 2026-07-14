@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { audio, haptic } from "@/lib/game/audio";
-import { CoinBadge } from "@/components/game/MenuShell";
+import { CoinBadge, GemBadge } from "@/components/game/MenuShell";
 import { DAILY_REWARDS } from "@/lib/game/progression";
 
 export const Route = createFileRoute("/")({
@@ -59,7 +59,10 @@ function MainMenu() {
         ) : (
           <span />
         )}
-        <CoinBadge amount={hydrated ? store.coins : 0} />
+        <div className="flex items-center gap-2">
+          <GemBadge amount={hydrated ? store.gems : 0} />
+          <CoinBadge amount={hydrated ? store.coins : 0} />
+        </div>
       </div>
 
       {/* Logo */}

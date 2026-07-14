@@ -3,7 +3,19 @@
  * runs great on low-end devices. Music and SFX have independent volume buses.
  */
 
-type SfxName = "click" | "dash" | "coin" | "win" | "lose" | "whoosh" | "purchase" | "reward";
+type SfxName =
+  | "click"
+  | "dash"
+  | "coin"
+  | "coin_combo"
+  | "gem"
+  | "win"
+  | "levelup"
+  | "lose"
+  | "whoosh"
+  | "nearmiss"
+  | "purchase"
+  | "reward";
 
 class AudioManager {
   private ctx: AudioContext | null = null;
@@ -14,6 +26,9 @@ class AudioManager {
   private musicMode: "menu" | "game" | null = null;
   musicVolume = 0.6;
   sfxVolume = 0.8;
+  /** rolling coin pitch — resets when user stops picking up coins */
+  private comboPitch = 0;
+  private lastCoinT = 0;
 
   /** Must be called from a user gesture (tap) to unlock audio on mobile. */
   private ensure(): AudioContext | null {
@@ -40,7 +55,7 @@ class AudioManager {
 
   private applyVolumes() {
     if (this.musicGain) this.musicGain.gain.value = this.musicVolume * 0.16;
-    if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume * 0.5;
+    if (this.sfxGain) this.sfxGain.gain.value = this.sfxVolume * 0.55;
   }
 
   private tone(freq: number, dur: number, type: OscillatorType, gain: number, bus: GainNode, when = 0, slideTo?: number) {
@@ -88,21 +103,49 @@ class AudioManager {
         this.noise(0.12, 0.15, bus, 4000);
         break;
       case "whoosh":
-        this.noise(0.25, 0.2, bus, 1200);
+        this.noise(0.22, 0.18, bus, 1400);
+        this.tone(180, 0.12, "sine", 0.15, bus, 0, 90);
         break;
-      case "coin":
-        this.tone(988, 0.08, "square", 0.25, bus);
-        this.tone(1319, 0.15, "square", 0.25, bus, 0.07);
+      case "nearmiss":
+        // rising ping — the "so close!" cue
+        this.tone(1400, 0.09, "sine", 0.28, bus, 0, 2200);
+        this.tone(2100, 0.11, "sine", 0.15, bus, 0.02);
+        break;
+      case "coin": {
+        // ascending pitch when picked in rapid succession (combo)
+        const now = ctx.currentTime;
+        if (now - this.lastCoinT < 0.6) this.comboPitch = Math.min(this.comboPitch + 1, 12);
+        else this.comboPitch = 0;
+        this.lastCoinT = now;
+        const base = 988 * Math.pow(1.06, this.comboPitch);
+        this.tone(base, 0.07, "square", 0.22, bus);
+        this.tone(base * 1.33, 0.13, "square", 0.22, bus, 0.06);
+        break;
+      }
+      case "coin_combo":
+        [1046, 1318, 1568, 2093].forEach((f, i) => this.tone(f, 0.12, "triangle", 0.28, bus, i * 0.05));
+        break;
+      case "gem":
+        // sparkly triangle chord
+        [1568, 2093, 2637].forEach((f, i) => this.tone(f, 0.35, "triangle", 0.28, bus, i * 0.04));
+        this.noise(0.15, 0.08, bus, 6000);
         break;
       case "win":
-        [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.25, "triangle", 0.35, bus, i * 0.12));
+        [523, 659, 784, 1047].forEach((f, i) => this.tone(f, 0.25, "triangle", 0.35, bus, i * 0.11));
+        this.tone(1568, 0.5, "sine", 0.25, bus, 0.44);
+        break;
+      case "levelup":
+        // triumphant arpeggio + shimmer
+        [523, 659, 784, 1047, 1318, 1568].forEach((f, i) => this.tone(f, 0.22, "triangle", 0.3, bus, i * 0.07));
+        this.tone(2093, 0.6, "sine", 0.22, bus, 0.42);
         break;
       case "lose":
-        this.tone(220, 0.5, "sawtooth", 0.35, bus, 0, 55);
+        this.tone(220, 0.55, "sawtooth", 0.35, bus, 0, 55);
+        this.tone(165, 0.55, "sawtooth", 0.28, bus, 0.05, 40);
         this.noise(0.4, 0.3, bus, 800);
         break;
       case "purchase":
-        [660, 880].forEach((f, i) => this.tone(f, 0.12, "triangle", 0.3, bus, i * 0.09));
+        [660, 880, 1100].forEach((f, i) => this.tone(f, 0.12, "triangle", 0.3, bus, i * 0.08));
         break;
       case "reward":
         [523, 659, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.2, "triangle", 0.3, bus, i * 0.08));
@@ -120,18 +163,23 @@ class AudioManager {
     const scaleMenu = [220, 261.6, 329.6, 392, 440, 523.3];
     const scaleGame = [174.6, 220, 261.6, 349.2, 415.3, 523.3];
     const scale = mode === "menu" ? scaleMenu : scaleGame;
-    const stepMs = mode === "menu" ? 300 : 210;
+    const stepMs = mode === "menu" ? 300 : 180;
     this.musicStep = 0;
     this.musicTimer = setInterval(() => {
       if (!this.ctx || !this.musicGain || this.musicVolume <= 0) return;
       const s = this.musicStep++;
       const bus = this.musicGain;
-      // bass every 4 steps
-      if (s % 4 === 0) this.tone(scale[0] / 2, 0.4, "triangle", 0.5, bus);
-      // arpeggio
-      const idx = [0, 2, 4, 5, 4, 2][s % 6];
-      this.tone(scale[idx], 0.28, "sine", 0.35, bus);
-      if (s % 8 === 6) this.tone(scale[3] * 2, 0.2, "sine", 0.15, bus);
+      // driving bass every 2 steps in game
+      if (mode === "game" ? s % 2 === 0 : s % 4 === 0) {
+        this.tone(scale[0] / 2, 0.25, "sawtooth", 0.45, bus);
+      }
+      // arpeggio pattern
+      const pattern = mode === "game" ? [0, 2, 4, 3, 4, 2, 5, 4] : [0, 2, 4, 5, 4, 2];
+      const idx = pattern[s % pattern.length];
+      this.tone(scale[idx], 0.24, "sine", 0.32, bus);
+      // shimmer highs
+      if (s % 8 === 6) this.tone(scale[3] * 2, 0.2, "sine", 0.14, bus);
+      if (mode === "game" && s % 16 === 0) this.tone(scale[4] * 2, 0.3, "triangle", 0.18, bus);
     }, stepMs);
   }
 

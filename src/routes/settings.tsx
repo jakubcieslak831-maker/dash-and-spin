@@ -45,20 +45,29 @@ function SettingsPage() {
         <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Audio</h2>
         <Slider label="🎵 Music" value={store.musicVolume} onChange={setMusic} />
         <Slider label="🔊 Sound effects" value={store.sfxVolume} onChange={setSfx} />
-        <label className="flex items-center justify-between">
-          <span className="font-bold">📳 Haptic feedback</span>
-          <button
-            role="switch"
-            aria-checked={store.hapticsEnabled}
-            onClick={() => {
-              store.setHaptics(!store.hapticsEnabled);
-              audio.play("click");
-            }}
-            className={`h-7 w-12 rounded-full p-1 transition-colors ${store.hapticsEnabled ? "bg-primary" : "bg-muted"}`}
-          >
-            <span className={`block h-5 w-5 rounded-full bg-background transition-transform ${store.hapticsEnabled ? "translate-x-5" : ""}`} />
-          </button>
-        </label>
+        <Toggle
+          label="📳 Haptic feedback"
+          on={store.hapticsEnabled}
+          onToggle={() => {
+            store.setHaptics(!store.hapticsEnabled);
+            audio.play("click");
+          }}
+        />
+      </section>
+
+      <section className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-5">
+        <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Accessibility</h2>
+        <Toggle
+          label="🌿 Reduced motion"
+          on={store.reducedMotion}
+          onToggle={() => {
+            store.setReducedMotion(!store.reducedMotion);
+            audio.play("click");
+          }}
+        />
+        <p className="text-xs text-muted-foreground">
+          Turns off screen shake and cuts particle intensity for calmer gameplay. No effect on difficulty.
+        </p>
       </section>
 
       <section className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-5">
@@ -147,5 +156,21 @@ function Stat({ k, v }: { k: string; v: number }) {
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{k}</div>
       <div className="font-display font-bold tabular-nums">{v.toLocaleString()}</div>
     </div>
+  );
+}
+
+function Toggle({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+  return (
+    <label className="flex items-center justify-between">
+      <span className="font-bold">{label}</span>
+      <button
+        role="switch"
+        aria-checked={on}
+        onClick={onToggle}
+        className={`h-7 w-12 rounded-full p-1 transition-colors ${on ? "bg-primary" : "bg-muted"}`}
+      >
+        <span className={`block h-5 w-5 rounded-full bg-background transition-transform ${on ? "translate-x-5" : ""}`} />
+      </button>
+    </label>
   );
 }

@@ -15,6 +15,7 @@ export interface GameStats {
   flawlessWins: number;
   dailiesCompleted: number;
   lifetimeCoins: number;
+  lifetimeGems: number;
   bestBlade: number;
   bestEndless: number;
   bestTime: number | null;
@@ -39,7 +40,7 @@ interface DailyProgress {
 
 export interface RunRecord {
   mode: "level" | "endless" | "daily";
-  score: number; // time (level/daily, lower=better) or blades (endless, higher=better)
+  score: number;
   date: string;
 }
 
@@ -63,21 +64,28 @@ interface GameStore {
   musicVolume: number;
   sfxVolume: number;
   hapticsEnabled: boolean;
+  /** Calmer visuals: no camera shake, fewer particles. */
+  reducedMotion: boolean;
   adsRemoved: boolean;
   premium: boolean;
   tutorialSeen: boolean;
   records: RunRecord[];
   sessionDeaths: number;
-  /** highest level the player has unlocked in the Levels campaign (1..100) */
+  /** highest level the player has unlocked in the Levels campaign */
   unlockedLevel: number;
   /** best completion time per level number */
   levelBestTimes: Record<number, number>;
+  /** timestamp of last free gem via rewarded ad, to rate-limit farming */
+  lastFreeGemAt: number | null;
 
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
+  addGems: (n: number) => void;
+  spendGems: (n: number) => boolean;
   buyItem: (kind: "skin" | "trail" | "explosion" | "theme", id: string, price: number) => boolean;
+  buyItemGems: (kind: "skin" | "trail" | "explosion" | "theme", id: string, gemPrice: number) => boolean;
   equip: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => void;
-  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => string[];
+  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => { newlyAchievements: string[]; gemsAwarded: number };
   recordAdWatch: () => void;
   checkLogin: () => void;
   claimDailyReward: () => { ok: boolean; label: string };
@@ -87,6 +95,7 @@ interface GameStore {
   claimMission: (id: string) => boolean;
   setAudio: (music: number, sfx: number) => void;
   setHaptics: (on: boolean) => void;
+  setReducedMotion: (on: boolean) => void;
   setAdsRemoved: (v: boolean) => void;
   setPremium: (v: boolean) => void;
   setTutorialSeen: () => void;
@@ -111,7 +120,7 @@ export const useGameStore = create<GameStore>()(
   persist(
     (set, get) => ({
       coins: 0,
-      gems: 0,
+      gems: 5, // small welcome pouch so the gem economy is discoverable
       ownedSkins: ["classic"],
       ownedTrails: ["none"],
       ownedExplosions: ["burst"],
@@ -128,6 +137,7 @@ export const useGameStore = create<GameStore>()(
         flawlessWins: 0,
         dailiesCompleted: 0,
         lifetimeCoins: 0,
+        lifetimeGems: 0,
         bestBlade: 0,
         bestEndless: 0,
         bestTime: null,
@@ -145,6 +155,7 @@ export const useGameStore = create<GameStore>()(
       musicVolume: 0.6,
       sfxVolume: 0.8,
       hapticsEnabled: true,
+      reducedMotion: false,
       adsRemoved: false,
       premium: false,
       tutorialSeen: false,
@@ -152,6 +163,7 @@ export const useGameStore = create<GameStore>()(
       sessionDeaths: 0,
       unlockedLevel: 1,
       levelBestTimes: {},
+      lastFreeGemAt: null,
 
       addCoins: (n) =>
         set((s) => ({
@@ -165,9 +177,41 @@ export const useGameStore = create<GameStore>()(
         return true;
       },
 
+      addGems: (n) =>
+        set((s) => ({
+          gems: s.gems + n,
+          stats: { ...s.stats, lifetimeGems: s.stats.lifetimeGems + Math.max(0, n) },
+        })),
+
+      spendGems: (n) => {
+        if (get().gems < n) return false;
+        set((s) => ({ gems: s.gems - n }));
+        return true;
+      },
+
       buyItem: (kind, id, price) => {
         const s = get();
         if (!s.spendCoins(price)) return false;
+        const key = kind === "skin" ? "ownedSkins" : kind === "trail" ? "ownedTrails" : kind === "explosion" ? "ownedExplosions" : "ownedThemes";
+        set((st) => {
+          const owned = [...(st[key] as string[]), id];
+          return {
+            [key]: owned,
+            stats: {
+              ...st.stats,
+              skinsOwned: kind === "skin" ? owned.length : st.stats.skinsOwned,
+              trailsOwned: kind === "trail" ? owned.length : st.stats.trailsOwned,
+              themesOwned: kind === "theme" ? owned.length : st.stats.themesOwned,
+            },
+          } as Partial<GameStore>;
+        });
+        get().checkAchievements();
+        return true;
+      },
+
+      buyItemGems: (kind, id, gemPrice) => {
+        const s = get();
+        if (!s.spendGems(gemPrice)) return false;
         const key = kind === "skin" ? "ownedSkins" : kind === "trail" ? "ownedTrails" : kind === "explosion" ? "ownedExplosions" : "ownedThemes";
         set((st) => {
           const owned = [...(st[key] as string[]), id];
@@ -208,6 +252,11 @@ export const useGameStore = create<GameStore>()(
 
       recordRun: ({ mode, won, bladesPassed, coinsEarned, time, dashes, level }) => {
         get().resetDailyIfNeeded();
+        // Award gems for meaningful wins so the premium currency has an
+        // organic (but slow) free path in addition to the shop bundles.
+        let gemsAwarded = 0;
+        if (won && mode === "level") gemsAwarded = 1;
+        if (won && mode === "daily") gemsAwarded = 3;
         set((s) => {
           const stats = { ...s.stats };
           stats.totalRuns += 1;
@@ -222,15 +271,15 @@ export const useGameStore = create<GameStore>()(
           }
           if (won && mode === "daily" && !s.daily.dailyChallengeDone) stats.dailiesCompleted += 1;
           stats.lifetimeCoins += coinsEarned;
+          stats.lifetimeGems += gemsAwarded;
 
           const records = [...s.records, { mode, score: mode === "endless" ? bladesPassed : time, date: todayKey() }]
             .slice(-200);
 
-          // Level campaign progression: unlock the next level on a win.
           let unlockedLevel = s.unlockedLevel;
           const levelBestTimes = { ...s.levelBestTimes };
           if (won && mode === "level" && level) {
-            unlockedLevel = Math.max(unlockedLevel, Math.min(100, level + 1));
+            unlockedLevel = Math.max(unlockedLevel, Math.min(150, level + 1));
             if (levelBestTimes[level] === undefined || time < levelBestTimes[level]) {
               levelBestTimes[level] = time;
             }
@@ -238,6 +287,7 @@ export const useGameStore = create<GameStore>()(
 
           return {
             coins: s.coins + coinsEarned,
+            gems: s.gems + gemsAwarded,
             stats,
             sessionDeaths: won ? s.sessionDeaths : s.sessionDeaths + 1,
             records,
@@ -254,7 +304,7 @@ export const useGameStore = create<GameStore>()(
             },
           };
         });
-        return get().checkAchievements();
+        return { newlyAchievements: get().checkAchievements(), gemsAwarded };
       },
 
       recordAdWatch: () => {
@@ -292,6 +342,8 @@ export const useGameStore = create<GameStore>()(
         if (reward.type === "coins") get().addCoins(reward.amount!);
         else if (reward.type === "skin") get().grantItem("skin", reward.itemId!);
         else get().grantItem("trail", reward.itemId!);
+        // bonus gem on day 7 for the streak
+        if (day === 7) get().addGems(5);
         get().checkAchievements();
         return { ok: true, label: reward.label };
       },
@@ -323,6 +375,7 @@ export const useGameStore = create<GameStore>()(
 
       setAudio: (music, sfx) => set({ musicVolume: music, sfxVolume: sfx }),
       setHaptics: (on) => set({ hapticsEnabled: on }),
+      setReducedMotion: (on) => set({ reducedMotion: on }),
       setAdsRemoved: (v) => set({ adsRemoved: v }),
       setPremium: (v) => set({ premium: v }),
       setTutorialSeen: () => set({ tutorialSeen: true }),

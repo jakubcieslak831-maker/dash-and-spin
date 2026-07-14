@@ -3,26 +3,40 @@ import { useState } from "react";
 import { MenuShell, GameButton } from "@/components/game/MenuShell";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { SKINS, TRAILS, EXPLOSIONS, THEMES } from "@/lib/game/cosmetics";
+import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES } from "@/lib/game/cosmetics";
+import { AdModal } from "@/components/game/AdModal";
 import { audio, haptic } from "@/lib/game/audio";
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
     meta: [
       { title: "Shop — BladeRun" },
-      { name: "description", content: "Unlock 20 ball skins, 15 trails, 10 explosion effects and 6 tunnel themes with your coins." },
+      { name: "description", content: "Unlock ball skins, trails, explosion effects, tunnel themes and gem bundles." },
       { property: "og:title", content: "BladeRun Shop" },
-      { property: "og:description", content: "Unlock skins, trails, explosions and tunnel themes." },
+      { property: "og:description", content: "Unlock cosmetics with coins or premium 💎 gems." },
     ],
   }),
   component: ShopPage,
 });
 
-type Tab = "skin" | "trail" | "explosion" | "theme";
+type Tab = "skin" | "trail" | "explosion" | "theme" | "gems";
+
+type Item = {
+  id: string;
+  name: string;
+  price: number;
+  gemPrice?: number;
+  color: string;
+  extra: string;
+  limited: boolean;
+  limitedTag?: string;
+};
 
 function ShopPage() {
   const hydrated = useHydrated();
   const [tab, setTab] = useState<Tab>("skin");
+  const [ad, setAd] = useState<null | "freegem" | "bundle">(null);
+  const [pendingBundle, setPendingBundle] = useState<{ gems: number; label: string } | null>(null);
   const store = useGameStore();
 
   const tabs: { id: Tab; label: string }[] = [
@@ -30,36 +44,63 @@ function ShopPage() {
     { id: "trail", label: "Trails" },
     { id: "explosion", label: "Booms" },
     { id: "theme", label: "Themes" },
+    { id: "gems", label: "💎 Gems" },
   ];
 
-  const items =
+  const buildItems = (): Item[] => {
+    if (tab === "skin") return SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, gemPrice: s.gemPrice, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }));
+    if (tab === "trail") return TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }));
+    if (tab === "explosion") return EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, gemPrice: e.gemPrice, color: e.colors[0], extra: "", limited: !!e.limited, limitedTag: e.limitedTag }));
+    return THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.accent, extra: t.emoji, limited: !!t.limited, limitedTag: t.limitedTag }));
+  };
+
+  const ownedKey =
     tab === "skin"
-      ? SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }))
+      ? store.ownedSkins
       : tab === "trail"
-        ? TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }))
+        ? store.ownedTrails
         : tab === "explosion"
-          ? EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, color: e.colors[0], extra: "", limited: false, limitedTag: undefined }))
-          : THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, color: t.accent, extra: t.emoji, limited: false, limitedTag: undefined }));
+          ? store.ownedExplosions
+          : tab === "theme"
+            ? store.ownedThemes
+            : [];
+  const equipped =
+    tab === "skin"
+      ? store.equippedSkin
+      : tab === "trail"
+        ? store.equippedTrail
+        : tab === "explosion"
+          ? store.equippedExplosion
+          : store.equippedTheme;
 
-  const ownedKey = tab === "skin" ? store.ownedSkins : tab === "trail" ? store.ownedTrails : tab === "explosion" ? store.ownedExplosions : store.ownedThemes;
-  const equipped = tab === "skin" ? store.equippedSkin : tab === "trail" ? store.equippedTrail : tab === "explosion" ? store.equippedExplosion : store.equippedTheme;
-
-  const act = (id: string, price: number, owned: boolean) => {
+  const act = (item: Item, owned: boolean) => {
+    if (tab === "gems") return;
     if (owned) {
-      store.equip(tab, id);
+      store.equip(tab, item.id);
       audio.play("click");
-    } else if (store.buyItem(tab, id, price)) {
-      store.equip(tab, id);
+      return;
+    }
+    // gem-priced items
+    if (item.gemPrice && item.gemPrice > 0) {
+      if (store.buyItemGems(tab, item.id, item.gemPrice)) {
+        store.equip(tab, item.id);
+        audio.play("gem");
+        if (store.hapticsEnabled) haptic([25, 30, 25]);
+      } else audio.play("lose");
+      return;
+    }
+    if (store.buyItem(tab, item.id, item.price)) {
+      store.equip(tab, item.id);
       audio.play("purchase");
       if (store.hapticsEnabled) haptic([20, 30, 20]);
-    } else {
-      audio.play("lose");
-    }
+    } else audio.play("lose");
   };
+
+  const items = buildItems();
 
   return (
     <MenuShell title="Shop">
-      <div className="mb-5 grid grid-cols-4 gap-2">
+      <div className="mb-5 grid grid-cols-5 gap-1.5">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -67,7 +108,7 @@ function ShopPage() {
               setTab(t.id);
               audio.play("click");
             }}
-            className={`rounded-xl py-2.5 font-display text-xs font-bold uppercase tracking-wider transition-colors ${
+            className={`rounded-xl py-2.5 font-display text-[10px] font-bold uppercase tracking-wider transition-colors ${
               tab === t.id ? "glow-primary bg-primary text-primary-foreground" : "border border-border bg-card text-muted-foreground"
             }`}
           >
@@ -78,35 +119,57 @@ function ShopPage() {
 
       {!hydrated ? (
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
+      ) : tab === "gems" ? (
+        <GemsTab
+          onBundle={(b) => {
+            setPendingBundle({ gems: b.gems + (b.bonus ?? 0), label: b.priceLabel });
+            setAd("bundle");
+          }}
+          onFree={() => setAd("freegem")}
+          gems={store.gems}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
             const owned = ownedKey.includes(item.id);
             const isEquipped = equipped === item.id;
-            const affordable = store.coins >= item.price;
+            const usesGems = !!item.gemPrice && item.gemPrice > 0;
+            const affordable = usesGems ? store.gems >= (item.gemPrice ?? 0) : store.coins >= item.price;
             return (
-              <div key={item.id} className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : item.limited ? "border-gold/60" : "border-border"} bg-card`}>
+              <div
+                key={item.id}
+                className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 ${
+                  isEquipped ? "border-primary/60 glow-primary" : item.limited ? "border-gold/60" : usesGems ? "border-primary/40" : "border-border"
+                } bg-card`}
+              >
                 {item.limited && (
                   <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-gold/60 bg-background px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
                     ✦ {item.limitedTag ?? "Limited"}
                   </span>
                 )}
                 <div
-                  className="h-14 w-14 rounded-full border-2 border-border"
-                  style={{ background: `radial-gradient(circle at 35% 30%, ${item.color}, #000000cc)`, boxShadow: `0 0 18px ${item.color}66` }}
+                  className="relative h-14 w-14 rounded-full border-2 border-border"
+                  style={{
+                    background: `radial-gradient(circle at 32% 28%, #ffffffcc 0%, ${item.color} 30%, #000000cc 90%)`,
+                    boxShadow: `0 0 22px ${item.color}88, inset 0 -6px 12px #00000099`,
+                  }}
                   aria-hidden
                 >
                   {item.extra && <span className="flex h-full items-center justify-center text-2xl">{item.extra}</span>}
                 </div>
                 <div className="text-center">
                   <div className="font-display text-sm font-bold">{item.name}</div>
-                  {!owned && <div className={`text-xs font-bold ${affordable ? "text-gold" : "text-muted-foreground"}`}>🪙 {item.price.toLocaleString()}</div>}
+                  {!owned && (
+                    <div className={`text-xs font-bold ${affordable ? (usesGems ? "text-primary" : "text-gold") : "text-muted-foreground"}`}>
+                      {usesGems ? `💎 ${item.gemPrice}` : `🪙 ${item.price.toLocaleString()}`}
+                    </div>
+                  )}
                 </div>
                 <GameButton
-                  variant={isEquipped ? "ghost" : owned ? "primary" : affordable ? "gold" : "ghost"}
+                  variant={isEquipped ? "ghost" : owned ? "primary" : usesGems ? "primary" : affordable ? "gold" : "ghost"}
                   className="w-full !px-2 !py-2 text-[11px]"
                   disabled={isEquipped || (!owned && !affordable)}
-                  onClick={() => act(item.id, item.price, owned)}
+                  onClick={() => act(item, owned)}
                 >
                   {isEquipped ? "Equipped" : owned ? "Equip" : affordable ? "Buy" : "Locked"}
                 </GameButton>
@@ -115,6 +178,93 @@ function ShopPage() {
           })}
         </div>
       )}
+
+      {ad === "freegem" && (
+        <AdModal
+          kind="rewarded"
+          onSkip={() => setAd(null)}
+          onComplete={() => {
+            store.recordAdWatch();
+            store.addGems(1);
+            audio.play("gem");
+            setAd(null);
+          }}
+        />
+      )}
+      {ad === "bundle" && pendingBundle && (
+        <AdModal
+          kind="rewarded"
+          onSkip={() => setAd(null)}
+          onComplete={() => {
+            store.addGems(pendingBundle.gems);
+            audio.play("gem");
+            if (store.hapticsEnabled) haptic([30, 40, 30, 40, 60]);
+            setPendingBundle(null);
+            setAd(null);
+          }}
+        />
+      )}
     </MenuShell>
+  );
+}
+
+function GemsTab({
+  onBundle,
+  onFree,
+  gems,
+}: {
+  onBundle: (b: (typeof GEM_BUNDLES)[number]) => void;
+  onFree: () => void;
+  gems: number;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-2xl border border-primary/40 bg-card p-4 text-center">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground">Your gems</div>
+        <div className="mt-1 font-display text-3xl font-black text-primary">💎 {gems.toLocaleString()}</div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Gems unlock elite &amp; limited-edition cosmetics. Earn a few by winning levels or grab a bundle below.
+        </p>
+      </div>
+
+      <button
+        onClick={onFree}
+        className="animate-pulse-glow flex items-center justify-between rounded-2xl border border-gold/50 bg-card px-4 py-4 text-left active:scale-95"
+      >
+        <div>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Free gem</div>
+          <div className="font-display text-lg font-bold text-gold">📺 Watch ad · +1 💎</div>
+        </div>
+        <span className="text-3xl" aria-hidden>🎁</span>
+      </button>
+
+      <div className="grid grid-cols-2 gap-3">
+        {GEM_BUNDLES.map((b) => (
+          <div
+            key={b.id}
+            className={`relative flex flex-col items-center gap-2 rounded-2xl border p-4 ${
+              b.best ? "border-gold/60 glow-primary" : "border-border"
+            } bg-card`}
+          >
+            {b.best && (
+              <span className="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full border border-gold/60 bg-background px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                ★ Best value
+              </span>
+            )}
+            <div className="text-3xl" aria-hidden>💎</div>
+            <div className="text-center">
+              <div className="font-display text-xl font-black text-primary">{b.gems.toLocaleString()}</div>
+              {b.bonus && <div className="text-[10px] font-bold uppercase text-gold">+{b.bonus} bonus</div>}
+            </div>
+            <GameButton variant="gold" className="w-full !px-2 !py-2 text-[11px]" onClick={() => onBundle(b)}>
+              {b.priceLabel}
+            </GameButton>
+          </div>
+        ))}
+      </div>
+      <p className="text-center text-xs text-muted-foreground">
+        Bundle purchases are simulated in this build. Real in-app purchases plug in at native release.
+      </p>
+    </div>
   );
 }

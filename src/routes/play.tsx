@@ -86,6 +86,7 @@ function PlayScreen() {
           blades,
           speed,
           difficulty,
+          reducedMotion: s.reducedMotion,
           skin: skinById(s.equippedSkin),
           trail: trailById(s.equippedTrail),
           explosion: explosionById(s.equippedExplosion),
@@ -99,15 +100,19 @@ function PlayScreen() {
           },
           onDash: () => {},
           onBladePass: () => audio.play("whoosh"),
+          onNearMiss: () => {
+            audio.play("nearmiss");
+            if (store.getState().hapticsEnabled) haptic(12);
+          },
           onDeath: (bladesPassed, coins) => {
             audio.play("lose");
             audio.stopMusic();
-            if (store.getState().hapticsEnabled) haptic([60, 40, 80]);
+            if (store.getState().hapticsEnabled && !store.getState().reducedMotion) haptic([60, 40, 80]);
             setResult({ blades: bladesPassed, coins, time: 0, won: false });
             setPhase("dead");
           },
           onWin: (time, coins, totalBlades) => {
-            audio.play("win");
+            audio.play(mode === "level" ? "levelup" : "win");
             audio.stopMusic();
             if (store.getState().hapticsEnabled) haptic([30, 30, 30, 30, 60]);
             setResult({ blades: totalBlades, coins, time, won: true });
@@ -227,6 +232,7 @@ function PlayScreen() {
     commitRun();
     const next = Math.min(MAX_LEVEL, level + 1);
     setLevel(next);
+    void navigate({ to: "/play", search: { mode: "level", level: next }, replace: true });
     setRunKey((k) => k + 1);
   };
 
@@ -387,8 +393,13 @@ function PlayScreen() {
             </h2>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Stat label="Time" value={fmt(result.time)} />
-              <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
+              <Stat label="Coins" value={`🪙 ${totalEarned}`} />
             </div>
+            {(mode === "level" || mode === "daily") && (
+              <div className="rounded-xl border border-gold/40 bg-gold/10 py-2 text-sm font-bold text-gold">
+                💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
+              </div>
+            )}
             {!doubled.current && !recorded.current && (
               <GameButton variant="gold" onClick={() => setAd("double")}>
                 📺 Double coins
