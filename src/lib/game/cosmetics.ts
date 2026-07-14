@@ -1,16 +1,23 @@
 /**
  * Cosmetics catalog — ball skins, trails, explosions, tunnel themes.
  * All items are data-driven so new cosmetics can be appended freely.
+ *
+ * Items may be priced in coins (`price`) or premium gems (`gemPrice`).
+ * Limited-edition items are grouped by `limitedTag` (e.g. "Season 1") and
+ * shown with a badge in the shop.
  */
 
 export interface SkinDef {
   id: string;
   name: string;
   price: number;
+  gemPrice?: number;
   color: string;
   emissive: string;
   metalness: number;
   roughness: number;
+  /** For extra flair on premium/limited: brighter emissive + sparkle in shop preview. */
+  sparkle?: boolean;
   premium?: boolean;
   /** Limited edition — shown in a special shop section with a badge. */
   limited?: boolean;
@@ -22,7 +29,12 @@ export interface TrailDef {
   id: string;
   name: string;
   price: number;
+  gemPrice?: number;
   color: string;
+  /** Optional secondary color for gradient trails. */
+  color2?: string;
+  /** Trail dot size multiplier (default 1). */
+  size?: number;
   premium?: boolean;
   limited?: boolean;
   limitedTag?: string;
@@ -32,64 +44,78 @@ export interface ExplosionDef {
   id: string;
   name: string;
   price: number;
+  gemPrice?: number;
   colors: string[];
+  limited?: boolean;
+  limitedTag?: string;
 }
 
 export interface ThemeDef {
   id: string;
   name: string;
   price: number;
+  gemPrice?: number;
   tunnel: string;
   fog: string;
   blade: string;
   accent: string;
   emoji: string;
+  limited?: boolean;
+  limitedTag?: string;
 }
 
 export const SKINS: SkinDef[] = [
   { id: "classic", name: "Classic", price: 0, color: "#f5f5f5", emissive: "#222222", metalness: 0.3, roughness: 0.4 },
-  { id: "ember", name: "Ember", price: 200, color: "#ff5522", emissive: "#661100", metalness: 0.4, roughness: 0.3 },
-  { id: "ocean", name: "Ocean", price: 200, color: "#2288ff", emissive: "#001a44", metalness: 0.4, roughness: 0.3 },
-  { id: "toxic", name: "Toxic", price: 300, color: "#66ff33", emissive: "#114400", metalness: 0.3, roughness: 0.5 },
-  { id: "royal", name: "Royal", price: 300, color: "#ffcc00", emissive: "#443300", metalness: 0.9, roughness: 0.15 },
-  { id: "shadow", name: "Shadow", price: 400, color: "#1a1a1a", emissive: "#000000", metalness: 0.7, roughness: 0.2 },
-  { id: "bubblegum", name: "Bubblegum", price: 400, color: "#ff77cc", emissive: "#440022", metalness: 0.2, roughness: 0.6 },
-  { id: "chrome", name: "Chrome", price: 500, color: "#cccccc", emissive: "#111111", metalness: 1, roughness: 0.05 },
-  { id: "magma", name: "Magma", price: 500, color: "#ff3300", emissive: "#992200", metalness: 0.3, roughness: 0.4 },
-  { id: "glacier", name: "Glacier", price: 600, color: "#aaeeff", emissive: "#0088aa", metalness: 0.5, roughness: 0.1 },
-  { id: "void", name: "Void", price: 700, color: "#330066", emissive: "#5500aa", metalness: 0.6, roughness: 0.3 },
-  { id: "sunset", name: "Sunset", price: 700, color: "#ff8844", emissive: "#aa2255", metalness: 0.4, roughness: 0.35 },
-  { id: "jade", name: "Jade", price: 800, color: "#00cc88", emissive: "#004433", metalness: 0.6, roughness: 0.2 },
-  { id: "ruby", name: "Ruby", price: 900, color: "#ee1144", emissive: "#660011", metalness: 0.8, roughness: 0.1 },
-  { id: "sapphire", name: "Sapphire", price: 900, color: "#1144ee", emissive: "#001166", metalness: 0.8, roughness: 0.1 },
-  { id: "gold", name: "24K Gold", price: 1200, color: "#ffd700", emissive: "#664400", metalness: 1, roughness: 0.1 },
-  { id: "plasma", name: "Plasma", price: 1500, color: "#ff00ff", emissive: "#aa00aa", metalness: 0.5, roughness: 0.2 },
-  { id: "nova", name: "Nova", price: 2000, color: "#ffffff", emissive: "#8899ff", metalness: 0.9, roughness: 0.05 },
-  { id: "eclipse", name: "Eclipse", price: 2500, color: "#111111", emissive: "#ff6600", metalness: 0.9, roughness: 0.1, premium: true },
-  { id: "prism", name: "Prism", price: 3000, color: "#e0e0ff", emissive: "#00ffcc", metalness: 1, roughness: 0, premium: true },
-  // ---- Limited edition ----
-  { id: "aurelian", name: "Aurelian", price: 3500, color: "#ffcf5c", emissive: "#ff7b00", metalness: 1, roughness: 0.05, limited: true, limitedTag: "Season 1" },
-  { id: "midnight", name: "Midnight Bloom", price: 4000, color: "#b061ff", emissive: "#ff2fae", metalness: 0.8, roughness: 0.1, limited: true, limitedTag: "Season 1" },
+  { id: "ember", name: "Ember", price: 200, color: "#ff5522", emissive: "#aa2200", metalness: 0.4, roughness: 0.3 },
+  { id: "ocean", name: "Ocean", price: 200, color: "#2288ff", emissive: "#002266", metalness: 0.5, roughness: 0.25 },
+  { id: "toxic", name: "Toxic", price: 300, color: "#66ff33", emissive: "#227700", metalness: 0.3, roughness: 0.5 },
+  { id: "royal", name: "Royal", price: 300, color: "#ffcc00", emissive: "#664400", metalness: 0.9, roughness: 0.15 },
+  { id: "shadow", name: "Shadow", price: 400, color: "#1a1a1a", emissive: "#440066", metalness: 0.8, roughness: 0.15 },
+  { id: "bubblegum", name: "Bubblegum", price: 400, color: "#ff77cc", emissive: "#661144", metalness: 0.4, roughness: 0.4 },
+  { id: "chrome", name: "Chrome", price: 500, color: "#eeeeee", emissive: "#333333", metalness: 1, roughness: 0.02 },
+  { id: "magma", name: "Magma", price: 500, color: "#ff3300", emissive: "#aa2200", metalness: 0.4, roughness: 0.35 },
+  { id: "glacier", name: "Glacier", price: 600, color: "#aaeeff", emissive: "#0099cc", metalness: 0.6, roughness: 0.08 },
+  { id: "void", name: "Void", price: 700, color: "#4400aa", emissive: "#8800ff", metalness: 0.6, roughness: 0.25 },
+  { id: "sunset", name: "Sunset", price: 700, color: "#ff8844", emissive: "#cc2266", metalness: 0.5, roughness: 0.3 },
+  { id: "jade", name: "Jade", price: 800, color: "#00cc88", emissive: "#008855", metalness: 0.7, roughness: 0.15 },
+  { id: "ruby", name: "Ruby", price: 900, color: "#ee1144", emissive: "#880022", metalness: 0.85, roughness: 0.08, sparkle: true },
+  { id: "sapphire", name: "Sapphire", price: 900, color: "#1144ee", emissive: "#002288", metalness: 0.85, roughness: 0.08, sparkle: true },
+  { id: "gold", name: "24K Gold", price: 1200, color: "#ffd700", emissive: "#aa7700", metalness: 1, roughness: 0.08, sparkle: true },
+  { id: "plasma", name: "Plasma", price: 1500, color: "#ff00ff", emissive: "#cc00cc", metalness: 0.6, roughness: 0.15, sparkle: true },
+  { id: "nova", name: "Nova", price: 2000, color: "#ffffff", emissive: "#aabbff", metalness: 0.95, roughness: 0.02, sparkle: true },
+  { id: "eclipse", name: "Eclipse", price: 2500, color: "#111111", emissive: "#ff6600", metalness: 0.95, roughness: 0.08, premium: true, sparkle: true },
+  { id: "prism", name: "Prism", price: 3000, color: "#e0e0ff", emissive: "#00ffcc", metalness: 1, roughness: 0, premium: true, sparkle: true },
+  // ---- Gem-priced elite ----
+  { id: "hologram", name: "Hologram", price: 0, gemPrice: 40, color: "#66ffee", emissive: "#00ccff", metalness: 0.9, roughness: 0.04, sparkle: true },
+  { id: "obsidian", name: "Obsidian", price: 0, gemPrice: 60, color: "#0a0a0a", emissive: "#5500ff", metalness: 1, roughness: 0.02, sparkle: true },
+  // ---- Limited edition · Season 1 ----
+  { id: "aurelian", name: "Aurelian", price: 3500, color: "#ffcf5c", emissive: "#ff7b00", metalness: 1, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
+  { id: "midnight", name: "Midnight Bloom", price: 4000, color: "#b061ff", emissive: "#ff2fae", metalness: 0.8, roughness: 0.08, limited: true, limitedTag: "Season 1", sparkle: true },
+  { id: "cyberdream", name: "Cyberdream", price: 0, gemPrice: 80, color: "#00ffcc", emissive: "#ff00cc", metalness: 0.95, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
+  { id: "phoenixegg", name: "Phoenix Egg", price: 0, gemPrice: 120, color: "#ff9933", emissive: "#ff2200", metalness: 0.9, roughness: 0.1, limited: true, limitedTag: "Founders", sparkle: true },
 ];
 
 export const TRAILS: TrailDef[] = [
   { id: "none", name: "None", price: 0, color: "#888888" },
-  { id: "spark", name: "Spark", price: 150, color: "#ffffff" },
-  { id: "flame", name: "Flame", price: 250, color: "#ff6622" },
-  { id: "frost", name: "Frost", price: 250, color: "#66ccff" },
-  { id: "venom", name: "Venom", price: 350, color: "#77ff22" },
-  { id: "rose", name: "Rose", price: 350, color: "#ff5599" },
-  { id: "volt", name: "Volt", price: 450, color: "#ffee00" },
-  { id: "abyss", name: "Abyss", price: 550, color: "#5533ff" },
-  { id: "mint", name: "Mint", price: 550, color: "#00ffaa" },
-  { id: "blood", name: "Blood", price: 650, color: "#cc0022" },
-  { id: "aurora", name: "Aurora", price: 800, color: "#44ffdd" },
-  { id: "solar", name: "Solar", price: 900, color: "#ffaa00" },
-  { id: "ghost", name: "Ghost", price: 1000, color: "#ccccff" },
-  { id: "neon", name: "Neon", price: 1200, color: "#ff00cc" },
-  { id: "galaxy", name: "Galaxy", price: 1500, color: "#aa66ff", premium: true },
+  { id: "spark", name: "Spark", price: 150, color: "#ffffff", size: 1 },
+  { id: "flame", name: "Flame", price: 250, color: "#ff6622", color2: "#ffcc00", size: 1.15 },
+  { id: "frost", name: "Frost", price: 250, color: "#66ccff", color2: "#ffffff", size: 1.1 },
+  { id: "venom", name: "Venom", price: 350, color: "#77ff22", color2: "#00ff88", size: 1.1 },
+  { id: "rose", name: "Rose", price: 350, color: "#ff5599", color2: "#ffbbdd", size: 1 },
+  { id: "volt", name: "Volt", price: 450, color: "#ffee00", color2: "#ffffff", size: 1.2 },
+  { id: "abyss", name: "Abyss", price: 550, color: "#5533ff", color2: "#aa66ff", size: 1.1 },
+  { id: "mint", name: "Mint", price: 550, color: "#00ffaa", color2: "#88ffcc", size: 1 },
+  { id: "blood", name: "Blood", price: 650, color: "#cc0022", color2: "#ff4466", size: 1.1 },
+  { id: "aurora", name: "Aurora", price: 800, color: "#44ffdd", color2: "#aa66ff", size: 1.25 },
+  { id: "solar", name: "Solar", price: 900, color: "#ffaa00", color2: "#ffffff", size: 1.25 },
+  { id: "ghost", name: "Ghost", price: 1000, color: "#ccccff", color2: "#ffffff", size: 1.3 },
+  { id: "neon", name: "Neon", price: 1200, color: "#ff00cc", color2: "#00ffdd", size: 1.3 },
+  { id: "galaxy", name: "Galaxy", price: 1500, color: "#aa66ff", color2: "#ffffff", size: 1.4, premium: true },
+  // ---- Gem-priced ----
+  { id: "rainbow", name: "Rainbow", price: 0, gemPrice: 50, color: "#ff00aa", color2: "#00ffff", size: 1.5 },
   // ---- Limited edition ----
-  { id: "comet", name: "Comet", price: 2200, color: "#7cf9ff", limited: true, limitedTag: "Season 1" },
+  { id: "comet", name: "Comet", price: 2200, color: "#7cf9ff", color2: "#ffffff", size: 1.4, limited: true, limitedTag: "Season 1" },
+  { id: "stardust", name: "Stardust", price: 0, gemPrice: 75, color: "#ffe0aa", color2: "#ff66cc", size: 1.5, limited: true, limitedTag: "Season 1" },
 ];
 
 export const EXPLOSIONS: ExplosionDef[] = [
@@ -103,6 +129,8 @@ export const EXPLOSIONS: ExplosionDef[] = [
   { id: "storm", name: "Storm", price: 700, colors: ["#4488ff", "#aaddff"] },
   { id: "supernova", name: "Supernova", price: 1000, colors: ["#ffffff", "#ff88ff", "#88ffff"] },
   { id: "phoenix", name: "Phoenix", price: 1500, colors: ["#ff2200", "#ffcc00", "#ff6600"] },
+  { id: "prismshatter", name: "Prism Shatter", price: 0, gemPrice: 30, colors: ["#ff00ff", "#00ffff", "#ffff00"] },
+  { id: "singularity", name: "Singularity", price: 0, gemPrice: 60, colors: ["#000000", "#8800ff", "#ffffff"], limited: true, limitedTag: "Season 1" },
 ];
 
 export const THEMES: ThemeDef[] = [
@@ -112,9 +140,26 @@ export const THEMES: ThemeDef[] = [
   { id: "space", name: "Space", price: 1000, tunnel: "#05050f", fog: "#020208", blade: "#8866ff", accent: "#ffffff", emoji: "🚀" },
   { id: "factory", name: "Factory", price: 1000, tunnel: "#1a1a18", fog: "#101010", blade: "#ffbb00", accent: "#ff4400", emoji: "🏭" },
   { id: "jungle", name: "Jungle", price: 1200, tunnel: "#0a1f0d", fog: "#051207", blade: "#44cc33", accent: "#ffee44", emoji: "🌿" },
+  { id: "sakura", name: "Sakura", price: 0, gemPrice: 40, tunnel: "#22101a", fog: "#160810", blade: "#ff88bb", accent: "#ffddee", emoji: "🌸", limited: true, limitedTag: "Season 1" },
+  { id: "vaporwave", name: "Vaporwave", price: 0, gemPrice: 55, tunnel: "#1a0a2a", fog: "#0f0518", blade: "#ff44dd", accent: "#00ffee", emoji: "🌴", limited: true, limitedTag: "Season 1" },
 ];
 
 export const skinById = (id: string) => SKINS.find((s) => s.id === id) ?? SKINS[0];
 export const trailById = (id: string) => TRAILS.find((t) => t.id === id) ?? TRAILS[0];
 export const explosionById = (id: string) => EXPLOSIONS.find((e) => e.id === id) ?? EXPLOSIONS[0];
 export const themeById = (id: string) => THEMES.find((t) => t.id === id) ?? THEMES[0];
+
+/** Purchasable gem bundles — simulated IAP for now, ready for a native SDK later. */
+export interface GemBundle {
+  id: string;
+  gems: number;
+  bonus?: number;
+  priceLabel: string;
+  best?: boolean;
+}
+export const GEM_BUNDLES: GemBundle[] = [
+  { id: "small", gems: 20, priceLabel: "£0.99" },
+  { id: "medium", gems: 100, bonus: 10, priceLabel: "£3.99" },
+  { id: "large", gems: 300, bonus: 60, priceLabel: "£9.99", best: true },
+  { id: "mega", gems: 800, bonus: 200, priceLabel: "£19.99" },
+];

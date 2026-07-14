@@ -6,11 +6,15 @@
  * (more blades) and more complex (faster blades, tighter gaps, more gaps,
  * wobble) as the number climbs.
  *
+ * IMPORTANT: every level must be *reachable* — the blade rotation speed is
+ * capped below the player's maximum steering speed and the gap size has a
+ * generous floor, so no obstacle is physically impossible to line up with.
+ *
  * Everything here is deterministic from the level number, so a given level
  * always plays the same — great for practice and fair competition.
  */
 
-export const MAX_LEVEL = 100;
+export const MAX_LEVEL = 150;
 
 export interface LevelConfig {
   level: number;
@@ -29,23 +33,25 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 
 /**
  * Derive a level's configuration from its number.
- * Tuned so early levels are gentle and level 100 is a real gauntlet.
+ * Tuned so early levels are gentle and late levels are a real gauntlet,
+ * yet every level remains completable with careful steering.
  */
 export function getLevelConfig(level: number): LevelConfig {
   const l = clamp(Math.round(level), 1, MAX_LEVEL);
-  // 6 blades at L1 growing to ~40 at L100 (longer levels over time)
-  const blades = Math.round(clamp(6 + (l - 1) * 0.35, 6, 40));
-  // constant speed ramps gently from 6 to ~11
-  const speed = clamp(6 + (l - 1) * 0.055, 6, 11.5);
-  // difficulty scales blade rotation speed + gap tightness
-  const difficulty = 1 + (l - 1) * 0.02;
+  // 6 blades at L1 growing to ~50 at L150
+  const blades = Math.round(clamp(6 + (l - 1) * 0.32, 6, 50));
+  // constant forward speed ramps gently from 6 to ~11
+  const speed = clamp(6 + (l - 1) * 0.035, 6, 11);
+  // difficulty scales blade rotation speed + gap tightness, capped so the
+  // hardest levels still stay reachable within the player's steering limit.
+  const difficulty = clamp(1 + (l - 1) * 0.014, 1, 2.6);
   return {
     level: l,
     blades,
     speed,
     difficulty,
     // distinct, stable seed per level
-    seed: 0x9e37 + l * 2654435761,
+    seed: (0x9e37 + l * 2654435761) >>> 0,
   };
 }
 
@@ -65,4 +71,9 @@ export const WORLD_NAMES = [
   "Hyperblade",
   "Singularity",
   "Legend",
+  "Ascension",
+  "Chromatic",
+  "Event Horizon",
+  "Infinity Loop",
+  "Apex",
 ];
