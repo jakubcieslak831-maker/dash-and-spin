@@ -8,11 +8,12 @@ import { audio, haptic } from "@/lib/game/audio";
 export function MenuShell({ title, children }: { title: string; children: ReactNode }) {
   const hydrated = useHydrated();
   const coins = useGameStore((s) => s.coins);
+  const gems = useGameStore((s) => s.gems);
   const haptics = useGameStore((s) => s.hapticsEnabled);
 
   return (
     <div className="bg-arena flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-md">
+      <header className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/60 bg-background/80 px-3 py-3 backdrop-blur-md">
         <Link
           to="/"
           onClick={() => {
@@ -24,8 +25,11 @@ export function MenuShell({ title, children }: { title: string; children: ReactN
         >
           ←
         </Link>
-        <h1 className="text-glow text-lg font-bold uppercase tracking-widest">{title}</h1>
-        <CoinBadge amount={hydrated ? coins : 0} />
+        <h1 className="text-glow flex-1 text-center text-base font-bold uppercase tracking-widest">{title}</h1>
+        <div className="flex items-center gap-1.5">
+          <GemBadge amount={hydrated ? gems : 0} />
+          <CoinBadge amount={hydrated ? coins : 0} />
+        </div>
       </header>
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-5 pb-10">{children}</main>
     </div>
@@ -34,8 +38,17 @@ export function MenuShell({ title, children }: { title: string; children: ReactN
 
 export function CoinBadge({ amount }: { amount: number }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-full border border-gold/40 bg-card px-3 py-1.5 text-sm font-bold text-gold">
+    <div className="flex items-center gap-1 rounded-full border border-gold/40 bg-card px-2.5 py-1 text-xs font-bold text-gold">
       <span aria-hidden>🪙</span>
+      <span className="tabular-nums">{amount.toLocaleString()}</span>
+    </div>
+  );
+}
+
+export function GemBadge({ amount }: { amount: number }) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border border-primary/50 bg-card px-2.5 py-1 text-xs font-bold text-primary">
+      <span aria-hidden>💎</span>
       <span className="tabular-nums">{amount.toLocaleString()}</span>
     </div>
   );
