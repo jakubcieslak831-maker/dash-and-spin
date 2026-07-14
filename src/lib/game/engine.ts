@@ -6,9 +6,14 @@
  * line it up with the gap in each spinning fan blade before reaching it.
  * Speed ramps up gradually in Endless and per-level in the Levels campaign.
  *
+ * Reachability guarantee: blade angular speed is capped below the player's
+ * maximum steering speed, and every gap is at least MIN_GAP_DEG wide, so
+ * every obstacle is physically completable with careful steering.
+ *
  * The engine is data-driven: obstacles implement the `Obstacle` interface so
  * future types (lasers, pistons, hammers…) can be added without touching the
- * core loop.
+ * core loop. Rotation modes ("linear" | "oscillate" | "static") give the
+ * FanBlade a lot of behavioural variety on its own.
  */
 import * as THREE from "three";
 import { mulberry32 } from "./rng";
@@ -28,6 +33,8 @@ export interface EngineConfig {
   blades?: number;
   speed?: number;
   difficulty?: number;
+  /** Calmer visuals: skip screen shake and cut particle count. */
+  reducedMotion?: boolean;
 }
 
 export interface HudState {
@@ -43,6 +50,7 @@ export interface EngineCallbacks {
   onCoin: () => void;
   onDash: () => void;
   onBladePass: (n: number) => void;
+  onNearMiss: () => void;
   onDeath: (bladesPassed: number, coins: number) => void;
   onWin: (time: number, coins: number, blades: number) => void;
 }
@@ -53,7 +61,11 @@ const BALL_RADIUS = 0.3;
 const RIDE_R = TUNNEL_RADIUS - BALL_RADIUS - 0.08;
 const BLADE_SPACING = 14;
 /** how far a horizontal drag pixel rotates the ball around the tunnel */
-const STEER_SENSITIVITY = 0.011;
+const STEER_SENSITIVITY = 0.014;
+/** hard cap on blade angular speed — leaves headroom below player steering */
+const MAX_BLADE_SPIN = 3.6; // rad/s (~206°/s)
+/** absolute floor on gap width so every blade is completable */
+const MIN_GAP_DEG = 55;
 
 /** Minimal obstacle contract — makes new obstacle types trivial to add. */
 interface Obstacle {
@@ -64,13 +76,19 @@ interface Obstacle {
   update(dt: number, elapsed: number): void;
   /** Returns true if the ball at world angle `ballPhi` collides while crossing. */
   collides(ballPhi: number): boolean;
+  /** Angular distance (radians) from the ball to the nearest gap edge (0 = dead center). */
+  gapDistance(ballPhi: number): number;
   dispose(): void;
 }
 
+/** How a blade rotates over time. */
+type RotMode = "linear" | "oscillate" | "static";
+
 interface BladeSpec {
-  gaps: { start: number; size: number }[]; // radians
-  speed: number; // rad/s (sign = direction)
-  wobble: number; // 0..1 — speed oscillation intensity
+  gaps: { start: number; size: number }[]; // radians (start relative to blade rotation)
+  mode: RotMode;
+  speed: number; // rad/s (linear speed, or oscillation angular frequency)
+  amp: number; // radians (oscillation amplitude when mode === "oscillate")
   startRot: number;
 }
 
@@ -92,9 +110,9 @@ class FanBlade implements Obstacle {
     const mat = new THREE.MeshStandardMaterial({
       color,
       emissive: color,
-      emissiveIntensity: 0.35,
-      metalness: 0.6,
-      roughness: 0.35,
+      emissiveIntensity: 0.45,
+      metalness: 0.7,
+      roughness: 0.3,
       side: THREE.DoubleSide,
     });
     // Build solid arcs between gaps
@@ -120,31 +138,50 @@ class FanBlade implements Obstacle {
   }
 
   update(dt: number, elapsed: number) {
-    let speed = this.spec.speed;
-    if (this.spec.wobble > 0) {
-      // slow-down-then-accelerate pattern
-      speed *= 1 + this.spec.wobble * Math.sin(elapsed * 1.7 + this.index);
+    if (this.spec.mode === "static") {
+      // no change
+    } else if (this.spec.mode === "oscillate") {
+      this.rot = this.spec.startRot + Math.sin(elapsed * this.spec.speed + this.index) * this.spec.amp;
+    } else {
+      this.rot += this.spec.speed * dt;
     }
-    this.rot += speed * dt;
     this.group.rotation.z = this.rot;
   }
 
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
   collides(ballPhi: number): boolean {
-    // Convert the ball's world angle into blade-local angle and test gaps.
     const TWO_PI = Math.PI * 2;
     let local = (ballPhi - this.rot) % TWO_PI;
     if (local < 0) local += TWO_PI;
-    // angular half-width of the ball at its radial distance
-    const ballAngle = Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+    const margin = this.ballAngle();
     for (const g of this.spec.gaps) {
       let gs = g.start % TWO_PI;
       if (gs < 0) gs += TWO_PI;
-      const margin = ballAngle;
       let rel = (local - gs) % TWO_PI;
       if (rel < 0) rel += TWO_PI;
       if (rel > margin && rel < g.size - margin) return false; // safely inside a gap
     }
     return true;
+  }
+
+  /** Signed angular distance from the ball to the closest gap centre. */
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.rot) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    let best = Math.PI;
+    for (const g of this.spec.gaps) {
+      let gs = g.start % TWO_PI;
+      if (gs < 0) gs += TWO_PI;
+      const centre = (gs + g.size / 2) % TWO_PI;
+      let d = Math.abs(local - centre);
+      if (d > Math.PI) d = TWO_PI - d;
+      if (d < best) best = d;
+    }
+    return best;
   }
 
   dispose() {
@@ -170,6 +207,7 @@ export class BladeRunEngine {
   private coinMeshes: { mesh: THREE.Mesh; z: number; phi: number; taken: boolean }[] = [];
   private trailPoints: THREE.Points;
   private trailData: Float32Array;
+  private trailColors: Float32Array;
   private trailIdx = 0;
   private explosionPoints: THREE.Points | null = null;
   private explosionVel: THREE.Vector3[] = [];
@@ -222,7 +260,7 @@ export class BladeRunEngine {
       this.totalBlades = cfg.blades ?? 15;
       this.finishZ = -((this.totalBlades + 1) * BLADE_SPACING + 6);
     }
-    this.timeLimit = Infinity; // survival-based; timer shown as count-up
+    this.timeLimit = Infinity;
 
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "low-power" });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -248,7 +286,7 @@ export class BladeRunEngine {
     this.scene.add(this.tunnel);
 
     // Guide rings for depth perception
-    const ringMat = new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.16 });
+    const ringMat = new THREE.MeshBasicMaterial({ color: theme.accent, transparent: true, opacity: 0.18 });
     for (let i = 0; i < 24; i++) {
       const ring = new THREE.Mesh(new THREE.TorusGeometry(TUNNEL_RADIUS - 0.02, 0.03, 6, 40), ringMat);
       ring.position.z = -i * BLADE_SPACING - 8;
@@ -256,8 +294,8 @@ export class BladeRunEngine {
     }
 
     // Lighting
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    this.ballLight = new THREE.PointLight(new THREE.Color(theme.accent), 12, 24);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    this.ballLight = new THREE.PointLight(new THREE.Color(theme.accent), 14, 26);
     this.scene.add(this.ballLight);
     const dir = new THREE.DirectionalLight(0xffffff, 0.6);
     dir.position.set(2, 5, 3);
@@ -266,30 +304,34 @@ export class BladeRunEngine {
     // Ball
     const skin = cfg.skin;
     this.ball = new THREE.Mesh(
-      new THREE.SphereGeometry(BALL_RADIUS, 24, 18),
+      new THREE.SphereGeometry(BALL_RADIUS, 28, 20),
       new THREE.MeshStandardMaterial({
         color: skin.color,
         emissive: skin.emissive,
-        emissiveIntensity: 0.8,
+        emissiveIntensity: skin.sparkle ? 1.15 : 0.75,
         metalness: skin.metalness,
         roughness: skin.roughness,
       }),
     );
     this.scene.add(this.ball);
 
-    // Trail particles (ring buffer)
-    const TRAIL_N = 80;
+    // Trail particles (ring buffer) — additive blend + per-point colour fade
+    const TRAIL_N = 120;
     this.trailData = new Float32Array(TRAIL_N * 3).fill(9999);
+    this.trailColors = new Float32Array(TRAIL_N * 3);
     const trailGeo = new THREE.BufferGeometry();
     trailGeo.setAttribute("position", new THREE.BufferAttribute(this.trailData, 3));
+    trailGeo.setAttribute("color", new THREE.BufferAttribute(this.trailColors, 3));
+    const trailSize = 0.22 * (cfg.trail.size ?? 1);
     this.trailPoints = new THREE.Points(
       trailGeo,
       new THREE.PointsMaterial({
-        color: cfg.trail.color,
-        size: 0.14,
+        size: trailSize,
         transparent: true,
-        opacity: cfg.trail.id === "none" ? 0 : 0.8,
+        opacity: cfg.trail.id === "none" ? 0 : 0.95,
         depthWrite: false,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
       }),
     );
     this.scene.add(this.trailPoints);
@@ -303,24 +345,34 @@ export class BladeRunEngine {
   private bladeSpec(i: number): BladeSpec {
     const r = this.rng;
     const d = this.difficulty;
-    // blade rotation speed ramps with index and difficulty
-    const base = (0.6 + i * 0.07) * d;
+    // linear rotation speed scales with index & difficulty then gets capped
+    const rawSpeed = (0.55 + i * 0.055) * d;
     const dirFlip = i >= 5 && r() < 0.4 ? -1 : 1;
-    const gapCount = i >= 8 && r() < 0.35 * d ? 2 : 1;
-    // gaps shrink with progress + difficulty, floored so they stay steerable
-    const gapDeg = Math.max(42, 100 - i * 2.6 - (d - 1) * 30);
-    const gapSize = THREE.MathUtils.degToRad(gapDeg / (gapCount > 1 ? 1.7 : 1));
+    // pick a rotation "personality" — more variety without new classes
+    const roll = r();
+    let mode: RotMode = "linear";
+    let amp = 0;
+    let speed = Math.min(MAX_BLADE_SPIN, rawSpeed) * dirFlip;
+    if (i >= 6 && roll < 0.18) {
+      mode = "oscillate";
+      // back-and-forth blade — swings ±amp radians at frequency = speed
+      amp = 0.9 + Math.min(1.4, i * 0.02);
+      speed = 1.1 + Math.min(2.2, i * 0.03) * dirFlip;
+    } else if (i >= 4 && roll < 0.26) {
+      mode = "static"; // a stationary bar the player must line up with
+      speed = 0;
+    }
+    // extra gaps for late blades keep multi-gap variety
+    const gapCount = i >= 8 && r() < 0.3 ? 2 : 1;
+    // gap size floor guarantees reachability
+    const gapDeg = Math.max(MIN_GAP_DEG, 105 - i * 1.1 - (d - 1) * 18);
+    const gapSize = THREE.MathUtils.degToRad(gapDeg) / (gapCount > 1 ? 1.6 : 1);
     const gaps: { start: number; size: number }[] = [];
     const first = r() * Math.PI * 2;
     for (let g = 0; g < gapCount; g++) {
       gaps.push({ start: first + (g * Math.PI * 2) / gapCount, size: gapSize });
     }
-    return {
-      gaps,
-      speed: base * dirFlip,
-      wobble: i >= 7 && r() < 0.4 ? 0.4 : 0,
-      startRot: r() * Math.PI * 2,
-    };
+    return { gaps, mode, speed, amp, startRot: r() * Math.PI * 2 };
   }
 
   private addBlade(i: number) {
@@ -331,7 +383,7 @@ export class BladeRunEngine {
       const phi = this.rng() * Math.PI * 2;
       const coin = new THREE.Mesh(
         new THREE.CylinderGeometry(0.22, 0.22, 0.06, 16).rotateX(Math.PI / 2),
-        new THREE.MeshStandardMaterial({ color: "#ffd700", emissive: "#aa7700", emissiveIntensity: 0.7, metalness: 1, roughness: 0.2 }),
+        new THREE.MeshStandardMaterial({ color: "#ffd700", emissive: "#aa7700", emissiveIntensity: 0.8, metalness: 1, roughness: 0.2 }),
       );
       const cz = z + BLADE_SPACING / 2;
       coin.position.set(RIDE_R * Math.cos(phi), RIDE_R * Math.sin(phi), cz);
@@ -435,16 +487,17 @@ export class BladeRunEngine {
     if (this.invulnT > 0) this.invulnT -= dt;
 
     // endless gets gradually faster; levels use a fixed per-level speed
-    const endlessBoost = this.cfg.mode === "endless" ? Math.min(6, this.bladesPassed * 0.14) : 0;
+    const endlessBoost = this.cfg.mode === "endless" ? Math.min(5, this.bladesPassed * 0.11) : 0;
     this.speed = this.baseSpeed + endlessBoost;
     this.ballZ -= this.speed * dt;
 
-    // smooth steering toward target angle
-    this.phi += (this.targetPhi - this.phi) * (1 - Math.pow(0.0005, dt));
+    // smooth steering toward target angle — snappier than before for better feel
+    const followK = 1 - Math.pow(0.00001, dt);
+    this.phi += (this.targetPhi - this.phi) * followK;
 
-    // endless difficulty ramps with distance
+    // endless difficulty ramps gently with distance and stays reachable
     if (this.cfg.mode === "endless") {
-      this.difficulty = 1 + Math.min(1.6, this.bladesPassed * 0.03);
+      this.difficulty = 1 + Math.min(1.4, this.bladesPassed * 0.022);
     }
 
     // obstacles
@@ -459,6 +512,12 @@ export class BladeRunEngine {
       if (!o.passed && this.ballZ < o.z - 0.5) {
         o.passed = true;
         this.bladesPassed = o.index + 1;
+        // near-miss detection: within ~13° of a gap edge counts
+        const d = o.gapDistance(this.phi);
+        if (d < 0.22) {
+          this.coins += 1;
+          this.cb.onNearMiss();
+        }
         this.cb.onBladePass(this.bladesPassed);
         if (this.cfg.mode === "endless") {
           this.coins += 2;
@@ -473,7 +532,7 @@ export class BladeRunEngine {
       }
     }
 
-    // coins — must be near in Z *and* angle now
+    // coins — must be near in Z *and* angle
     const ballX = RIDE_R * Math.cos(this.phi);
     const ballY = RIDE_R * Math.sin(this.phi);
     for (const c of this.coinMeshes) {
@@ -515,14 +574,14 @@ export class BladeRunEngine {
 
   private die() {
     this.dead = true;
-    this.shakeT = 0.5;
+    this.shakeT = this.cfg.reducedMotion ? 0 : 0.5;
     this.ball.visible = false;
     this.spawnExplosion();
     this.cb.onDeath(this.bladesPassed, this.coins);
   }
 
   private spawnExplosion() {
-    const N = 60;
+    const N = this.cfg.reducedMotion ? 18 : 70;
     const pos = new Float32Array(N * 3);
     this.explosionVel = [];
     for (let i = 0; i < N; i++) {
@@ -538,7 +597,14 @@ export class BladeRunEngine {
     const colors = this.cfg.explosion.colors;
     this.explosionPoints = new THREE.Points(
       geo,
-      new THREE.PointsMaterial({ color: colors[0], size: 0.16, transparent: true, opacity: 1, depthWrite: false }),
+      new THREE.PointsMaterial({
+        color: colors[0],
+        size: 0.18,
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      }),
     );
     this.scene.add(this.explosionPoints);
   }
@@ -557,13 +623,25 @@ export class BladeRunEngine {
     if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
     else if (!this.dead) this.ball.visible = true;
 
-    // trail ring buffer (emits at ball position)
+    // trail ring buffer (emits at ball position, colours alternate for gradient)
     if (this.running && !this.dead && this.cfg.trail.id !== "none") {
-      const i = this.trailIdx++ % (this.trailData.length / 3);
-      this.trailData[i * 3] = x + (Math.random() - 0.5) * 0.15;
-      this.trailData[i * 3 + 1] = y + (Math.random() - 0.5) * 0.15;
-      this.trailData[i * 3 + 2] = this.ballZ + 0.25;
+      const N = this.trailData.length / 3;
+      const emit = this.cfg.reducedMotion ? 1 : 2;
+      const c1 = new THREE.Color(this.cfg.trail.color);
+      const c2 = new THREE.Color(this.cfg.trail.color2 ?? this.cfg.trail.color);
+      for (let k = 0; k < emit; k++) {
+        const i = this.trailIdx++ % N;
+        const jitter = this.cfg.reducedMotion ? 0.05 : 0.18;
+        this.trailData[i * 3] = x + (Math.random() - 0.5) * jitter;
+        this.trailData[i * 3 + 1] = y + (Math.random() - 0.5) * jitter;
+        this.trailData[i * 3 + 2] = this.ballZ + 0.28 + Math.random() * 0.1;
+        const c = k % 2 === 0 ? c1 : c2;
+        this.trailColors[i * 3] = c.r;
+        this.trailColors[i * 3 + 1] = c.g;
+        this.trailColors[i * 3 + 2] = c.b;
+      }
       (this.trailPoints.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
+      (this.trailPoints.geometry.getAttribute("color") as THREE.BufferAttribute).needsUpdate = true;
     }
 
     // explosion particles
@@ -588,7 +666,7 @@ export class BladeRunEngine {
     // camera: centered behind, leaning slightly toward the ball, + shake
     let sx = 0,
       sy = 0;
-    if (this.shakeT > 0) {
+    if (this.shakeT > 0 && !this.cfg.reducedMotion) {
       this.shakeT -= dt;
       const s = this.shakeT * 0.5;
       sx = (Math.random() - 0.5) * s;
