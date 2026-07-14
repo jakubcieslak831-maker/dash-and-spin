@@ -158,3 +158,19 @@ function Stat({ k, v }: { k: string; v: number }) {
     </div>
   );
 }
+
+function Toggle({ label, on, onToggle }: { label: string; on: boolean; onToggle: () => void }) {
+  return (
+    <label className="flex items-center justify-between">
+      <span className="font-bold">{label}</span>
+      <button
+        role="switch"
+        aria-checked={on}
+        onClick={onToggle}
+        className={`h-7 w-12 rounded-full p-1 transition-colors ${on ? "bg-primary" : "bg-muted"}`}
+      >
+        <span className={`block h-5 w-5 rounded-full bg-background transition-transform ${on ? "translate-x-5" : ""}`} />
+      </button>
+    </label>
+  );
+}
