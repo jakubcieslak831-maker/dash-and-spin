@@ -393,8 +393,13 @@ function PlayScreen() {
             </h2>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <Stat label="Time" value={fmt(result.time)} />
-              <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
+              <Stat label="Coins" value={`🪙 ${totalEarned}`} />
             </div>
+            {(mode === "level" || mode === "daily") && (
+              <div className="rounded-xl border border-gold/40 bg-gold/10 py-2 text-sm font-bold text-gold">
+                💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
+              </div>
+            )}
             {!doubled.current && !recorded.current && (
               <GameButton variant="gold" onClick={() => setAd("double")}>
                 📺 Double coins
