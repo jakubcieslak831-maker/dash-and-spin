@@ -245,6 +245,9 @@ export class BladeRunEngine {
   private elapsed = 0;
   private timeLimit: number;
   private bladesPassed = 0;
+  private lastEmitPos = new THREE.Vector3(9999, 9999, 9999);
+  private shieldAvailable = false;
+
   private totalBlades: number;
   private difficulty: number;
   private coins = 0;
@@ -335,28 +338,35 @@ export class BladeRunEngine {
     );
     this.scene.add(this.ball);
 
-    // Trail particles (ring buffer) — additive blend + per-point colour fade
-    const TRAIL_N = 120;
+    // Trail — soft additive sprites, denser + interpolated for a smooth ribbon
+    const TRAIL_N = 260;
     this.trailData = new Float32Array(TRAIL_N * 3).fill(9999);
     this.trailColors = new Float32Array(TRAIL_N * 3);
     const trailGeo = new THREE.BufferGeometry();
     trailGeo.setAttribute("position", new THREE.BufferAttribute(this.trailData, 3));
     trailGeo.setAttribute("color", new THREE.BufferAttribute(this.trailColors, 3));
-    const trailSize = 0.22 * (cfg.trail.size ?? 1);
+    const trailSize = 0.34 * (cfg.trail.size ?? 1);
     this.trailPoints = new THREE.Points(
       trailGeo,
       new THREE.PointsMaterial({
         size: trailSize,
+        map: softCircleTexture(),
         transparent: true,
-        opacity: cfg.trail.id === "none" ? 0 : 0.95,
+        opacity: cfg.trail.id === "none" ? 0 : 1,
         depthWrite: false,
         vertexColors: true,
+        alphaTest: 0.01,
+        sizeAttenuation: true,
         blending: THREE.AdditiveBlending,
       }),
     );
     this.scene.add(this.trailPoints);
 
+    // P2W skin effects
+    this.shieldAvailable = cfg.skin.effect === "shield";
+
     this.buildLevel();
+
     if (cfg.mode !== "endless") this.buildChest();
   }
 
@@ -365,26 +375,22 @@ export class BladeRunEngine {
   private bladeSpec(i: number): BladeSpec {
     const r = this.rng;
     const d = this.difficulty;
-    // linear rotation speed scales with index & difficulty then gets capped
+    const slowmo = this.cfg.skin.effect === "slowmo" ? 0.85 : 1;
     const rawSpeed = (0.55 + i * 0.055) * d;
     const dirFlip = i >= 5 && r() < 0.4 ? -1 : 1;
-    // pick a rotation "personality" — more variety without new classes
     const roll = r();
     let mode: RotMode = "linear";
     let amp = 0;
-    let speed = Math.min(MAX_BLADE_SPIN, rawSpeed) * dirFlip;
+    let speed = Math.min(MAX_BLADE_SPIN, rawSpeed) * dirFlip * slowmo;
     if (i >= 6 && roll < 0.18) {
       mode = "oscillate";
-      // back-and-forth blade — swings ±amp radians at frequency = speed
       amp = 0.9 + Math.min(1.4, i * 0.02);
-      speed = 1.1 + Math.min(2.2, i * 0.03) * dirFlip;
+      speed = (1.1 + Math.min(2.2, i * 0.03) * dirFlip) * slowmo;
     } else if (i >= 4 && roll < 0.26) {
-      mode = "static"; // a stationary bar the player must line up with
+      mode = "static";
       speed = 0;
     }
-    // extra gaps for late blades keep multi-gap variety
     const gapCount = i >= 8 && r() < 0.3 ? 2 : 1;
-    // gap size floor guarantees reachability
     const gapDeg = Math.max(MIN_GAP_DEG, 105 - i * 1.1 - (d - 1) * 18);
     const gapSize = THREE.MathUtils.degToRad(gapDeg) / (gapCount > 1 ? 1.6 : 1);
     const gaps: { start: number; size: number }[] = [];
@@ -394,6 +400,7 @@ export class BladeRunEngine {
     }
     return { gaps, mode, speed, amp, startRot: r() * Math.PI * 2 };
   }
+
 
   private addBlade(i: number) {
     const z = -(i + 1) * BLADE_SPACING;
@@ -511,9 +518,10 @@ export class BladeRunEngine {
     this.speed = this.baseSpeed + endlessBoost;
     this.ballZ -= this.speed * dt;
 
-    // smooth steering toward target angle — snappier than before for better feel
-    const followK = 1 - Math.pow(0.00001, dt);
+    // smoother steering follow — softer lerp than snap-to-target
+    const followK = 1 - Math.pow(0.008, dt);
     this.phi += (this.targetPhi - this.phi) * followK;
+
 
     // endless difficulty ramps gently with distance and stays reachable
     if (this.cfg.mode === "endless") {
@@ -552,24 +560,29 @@ export class BladeRunEngine {
       }
     }
 
-    // coins — must be near in Z *and* angle
+    // coins — magnet skin widens the pickup radius; lucky skin adds bonus
     const ballX = RIDE_R * Math.cos(this.phi);
     const ballY = RIDE_R * Math.sin(this.phi);
+    const isMagnet = this.cfg.skin.effect === "magnet";
+    const isLucky = this.cfg.skin.effect === "lucky";
+    const rZ = isMagnet ? 1.9 : 0.7;
+    const rXY = isMagnet ? 2.0 : 0.9;
     for (const c of this.coinMeshes) {
       if (!c.taken) {
         c.mesh.rotation.z += 4 * dt;
-        if (Math.abs(this.ballZ - c.z) < 0.7) {
+        if (Math.abs(this.ballZ - c.z) < rZ) {
           const dx = ballX - c.mesh.position.x;
           const dy = ballY - c.mesh.position.y;
-          if (dx * dx + dy * dy < 0.9 * 0.9) {
+          if (dx * dx + dy * dy < rXY * rXY) {
             c.taken = true;
             c.mesh.visible = false;
-            this.coins += 5;
+            this.coins += isLucky ? 6 : 5;
             this.cb.onCoin();
           }
         }
       }
     }
+
 
     // win
     if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ) {
@@ -593,12 +606,19 @@ export class BladeRunEngine {
   }
 
   private die() {
+    // Shield skin auto-revives once
+    if (this.shieldAvailable) {
+      this.shieldAvailable = false;
+      this.invulnT = 2.0;
+      return;
+    }
     this.dead = true;
     this.shakeT = this.cfg.reducedMotion ? 0 : 0.5;
     this.ball.visible = false;
     this.spawnExplosion();
     this.cb.onDeath(this.bladesPassed, this.coins);
   }
+
 
   private spawnExplosion() {
     const N = this.cfg.reducedMotion ? 18 : 70;
@@ -643,26 +663,33 @@ export class BladeRunEngine {
     if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
     else if (!this.dead) this.ball.visible = true;
 
-    // trail ring buffer (emits at ball position, colours alternate for gradient)
+    // trail — emit multiple interpolated points between frames for smoothness
     if (this.running && !this.dead && this.cfg.trail.id !== "none") {
       const N = this.trailData.length / 3;
-      const emit = this.cfg.reducedMotion ? 1 : 2;
       const c1 = new THREE.Color(this.cfg.trail.color);
       const c2 = new THREE.Color(this.cfg.trail.color2 ?? this.cfg.trail.color);
-      for (let k = 0; k < emit; k++) {
+      const cur = new THREE.Vector3(x, y, this.ballZ + 0.24);
+      const prev = this.lastEmitPos.x === 9999 ? cur : this.lastEmitPos;
+      const dist = prev.distanceTo(cur);
+      const maxSteps = this.cfg.reducedMotion ? 3 : 8;
+      const steps = Math.max(1, Math.min(maxSteps, Math.ceil(dist / 0.09)));
+      for (let k = 1; k <= steps; k++) {
+        const tt = k / steps;
         const i = this.trailIdx++ % N;
-        const jitter = this.cfg.reducedMotion ? 0.05 : 0.18;
-        this.trailData[i * 3] = x + (Math.random() - 0.5) * jitter;
-        this.trailData[i * 3 + 1] = y + (Math.random() - 0.5) * jitter;
-        this.trailData[i * 3 + 2] = this.ballZ + 0.28 + Math.random() * 0.1;
-        const c = k % 2 === 0 ? c1 : c2;
+        this.trailData[i * 3] = prev.x + (cur.x - prev.x) * tt;
+        this.trailData[i * 3 + 1] = prev.y + (cur.y - prev.y) * tt;
+        this.trailData[i * 3 + 2] = prev.z + (cur.z - prev.z) * tt;
+        const mix = ((this.trailIdx * 0.06) % 1) < 0.5;
+        const c = mix ? c1 : c2;
         this.trailColors[i * 3] = c.r;
         this.trailColors[i * 3 + 1] = c.g;
         this.trailColors[i * 3 + 2] = c.b;
       }
+      this.lastEmitPos.copy(cur);
       (this.trailPoints.geometry.getAttribute("position") as THREE.BufferAttribute).needsUpdate = true;
       (this.trailPoints.geometry.getAttribute("color") as THREE.BufferAttribute).needsUpdate = true;
     }
+
 
     // explosion particles
     if (this.explosionPoints) {

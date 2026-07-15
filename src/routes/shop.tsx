@@ -3,9 +3,11 @@ import { useState } from "react";
 import { MenuShell, GameButton } from "@/components/game/MenuShell";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES } from "@/lib/game/cosmetics";
+import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES, OFFERS, type OfferDef } from "@/lib/game/cosmetics";
 import { AdModal } from "@/components/game/AdModal";
+import { PaymentModal } from "@/components/game/PaymentModal";
 import { audio, haptic } from "@/lib/game/audio";
+
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
