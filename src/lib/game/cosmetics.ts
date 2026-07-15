@@ -7,6 +7,16 @@
  * shown with a badge in the shop.
  */
 
+/**
+ * Optional gameplay-affecting effect for premium skins.
+ * Kept intentionally small so they're clearly "power" cosmetics, not P2W-crushing.
+ * - magnet:  larger coin pickup radius
+ * - slowmo:  spinning blades rotate slightly slower
+ * - shield:  start each run with one auto-revive on first crash
+ * - lucky:   +1 bonus coin whenever a coin is collected
+ */
+export type SkinEffect = "magnet" | "slowmo" | "shield" | "lucky";
+
 export interface SkinDef {
   id: string;
   name: string;
@@ -23,7 +33,12 @@ export interface SkinDef {
   limited?: boolean;
   /** Short flavour label for limited items, e.g. "Season 1". */
   limitedTag?: string;
+  /** Gameplay effect this skin grants when equipped. */
+  effect?: SkinEffect;
+  /** Short label describing the effect, e.g. "Coin magnet". */
+  effectLabel?: string;
 }
+
 
 export interface TrailDef {
   id: string;
