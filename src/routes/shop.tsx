@@ -37,9 +37,11 @@ type Item = {
 function ShopPage() {
   const hydrated = useHydrated();
   const [tab, setTab] = useState<Tab>("skin");
-  const [ad, setAd] = useState<null | "freegem" | "bundle">(null);
-  const [pendingBundle, setPendingBundle] = useState<{ gems: number; label: string } | null>(null);
+  const [ad, setAd] = useState<null | "freegem">(null);
+  const [payBundle, setPayBundle] = useState<null | { gems: number; label: string }>(null);
+  const [payOffer, setPayOffer] = useState<null | OfferDef>(null);
   const store = useGameStore();
+
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "skin", label: "Balls" },
