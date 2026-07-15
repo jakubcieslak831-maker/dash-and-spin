@@ -237,13 +237,16 @@ function ShopPage() {
 
 function GemsTab({
   onBundle,
+  onOffer,
   onFree,
   gems,
 }: {
   onBundle: (b: (typeof GEM_BUNDLES)[number]) => void;
+  onOffer: (o: OfferDef) => void;
   onFree: () => void;
   gems: number;
 }) {
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl border border-primary/40 bg-card p-4 text-center">
