@@ -194,22 +194,46 @@ function ShopPage() {
           }}
         />
       )}
-      {ad === "bundle" && pendingBundle && (
-        <AdModal
-          kind="rewarded"
-          onSkip={() => setAd(null)}
+      {payBundle && (
+        <PaymentModal
+          title={`${payBundle.gems} gems`}
+          subtitle="Confirm your gem purchase. Payment is simulated in this build."
+          priceLabel={payBundle.label}
+          icon="💎"
+          onCancel={() => setPayBundle(null)}
           onComplete={() => {
-            store.addGems(pendingBundle.gems);
+            store.addGems(payBundle.gems);
             audio.play("gem");
             if (store.hapticsEnabled) haptic([30, 40, 30, 40, 60]);
-            setPendingBundle(null);
-            setAd(null);
+            setPayBundle(null);
+          }}
+        />
+      )}
+      {payOffer && (
+        <PaymentModal
+          title={payOffer.title}
+          subtitle={payOffer.subtitle}
+          priceLabel={payOffer.priceLabel}
+          icon={payOffer.icon}
+          onCancel={() => setPayOffer(null)}
+          onComplete={() => {
+            if (payOffer.id === "removeAds") store.setAdsRemoved(true);
+            else if (payOffer.id === "premium") store.setPremium(true);
+            else if (payOffer.id === "starterPack") {
+              store.addCoins(500);
+              store.addGems(40);
+              store.grantItem("skin", "ember");
+            }
+            audio.play("purchase");
+            if (store.hapticsEnabled) haptic([20, 40, 20]);
+            setPayOffer(null);
           }}
         />
       )}
     </MenuShell>
   );
 }
+
 
 function GemsTab({
   onBundle,
