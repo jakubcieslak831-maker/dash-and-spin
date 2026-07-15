@@ -183,8 +183,25 @@ export interface GemBundle {
   best?: boolean;
 }
 export const GEM_BUNDLES: GemBundle[] = [
-  { id: "small", gems: 20, priceLabel: "£0.99" },
+  { id: "starter", gems: 20, priceLabel: "£0.99" },
+  { id: "handful", gems: 60, bonus: 5, priceLabel: "£2.49" },
   { id: "medium", gems: 100, bonus: 10, priceLabel: "£3.99" },
   { id: "large", gems: 300, bonus: 60, priceLabel: "£9.99", best: true },
   { id: "mega", gems: 800, bonus: 200, priceLabel: "£19.99" },
+  { id: "titan", gems: 2000, bonus: 700, priceLabel: "£39.99" },
 ];
+
+/** Special one-time offers (no-ads, premium 2x coins) — also simulated IAP. */
+export interface OfferDef {
+  id: "removeAds" | "premium" | "starterPack";
+  title: string;
+  subtitle: string;
+  priceLabel: string;
+  icon: string;
+}
+export const OFFERS: OfferDef[] = [
+  { id: "removeAds", title: "Remove Ads", subtitle: "No more interstitials, ever.", priceLabel: "£2.99", icon: "🚫" },
+  { id: "premium", title: "Premium Pass", subtitle: "Double all coins earned, forever.", priceLabel: "£4.99", icon: "👑" },
+  { id: "starterPack", title: "Starter Pack", subtitle: "500 coins + 40 gems + Ember skin.", priceLabel: "£1.99", icon: "🎁" },
+];
+
