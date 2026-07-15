@@ -38,42 +38,31 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
  */
 export function getLevelConfig(level: number): LevelConfig {
   const l = clamp(Math.round(level), 1, MAX_LEVEL);
-  // 6 blades at L1 growing to ~50 at L150
-  const blades = Math.round(clamp(6 + (l - 1) * 0.32, 6, 50));
-  // constant forward speed ramps gently from 6 to ~11
-  const speed = clamp(6 + (l - 1) * 0.035, 6, 11);
-  // difficulty scales blade rotation speed + gap tightness, capped so the
-  // hardest levels still stay reachable within the player's steering limit.
-  const difficulty = clamp(1 + (l - 1) * 0.014, 1, 2.6);
+  // 6 blades at L1 growing to ~70 at L300
+  const blades = Math.round(clamp(6 + (l - 1) * 0.22, 6, 70));
+  // constant forward speed ramps gently from 6 to ~12
+  const speed = clamp(6 + (l - 1) * 0.02, 6, 12);
+  // difficulty stays capped so hardest levels remain reachable
+  const difficulty = clamp(1 + (l - 1) * 0.008, 1, 2.8);
   return {
     level: l,
     blades,
     speed,
     difficulty,
-    // distinct, stable seed per level
     seed: (0x9e37 + l * 2654435761) >>> 0,
   };
 }
 
-/** Human-friendly grouping into "worlds" of 10 levels for the level select UI. */
 export function worldOf(level: number): number {
   return Math.floor((clamp(level, 1, MAX_LEVEL) - 1) / 10) + 1;
 }
 
 export const WORLD_NAMES = [
-  "Rookie Run",
-  "Neon Rush",
-  "Blade Storm",
-  "Iron Gauntlet",
-  "Velocity",
-  "Overdrive",
-  "Meltdown",
-  "Hyperblade",
-  "Singularity",
-  "Legend",
-  "Ascension",
-  "Chromatic",
-  "Event Horizon",
-  "Infinity Loop",
-  "Apex",
+  "Rookie Run", "Neon Rush", "Blade Storm", "Iron Gauntlet", "Velocity",
+  "Overdrive", "Meltdown", "Hyperblade", "Singularity", "Legend",
+  "Ascension", "Chromatic", "Event Horizon", "Infinity Loop", "Apex",
+  "Nova Reach", "Prism Gate", "Void Descent", "Chrono Break", "Starforge",
+  "Eclipse", "Quantum", "Nebula", "Cosmos", "Meteor Run",
+  "Solar Flare", "Black Hole", "Warp Drive", "Hyperspace", "Ascendant",
 ];
+
