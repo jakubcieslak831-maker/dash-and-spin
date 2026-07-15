@@ -7,6 +7,16 @@
  * shown with a badge in the shop.
  */
 
+/**
+ * Optional gameplay-affecting effect for premium skins.
+ * Kept intentionally small so they're clearly "power" cosmetics, not P2W-crushing.
+ * - magnet:  larger coin pickup radius
+ * - slowmo:  spinning blades rotate slightly slower
+ * - shield:  start each run with one auto-revive on first crash
+ * - lucky:   +1 bonus coin whenever a coin is collected
+ */
+export type SkinEffect = "magnet" | "slowmo" | "shield" | "lucky";
+
 export interface SkinDef {
   id: string;
   name: string;
@@ -23,7 +33,12 @@ export interface SkinDef {
   limited?: boolean;
   /** Short flavour label for limited items, e.g. "Season 1". */
   limitedTag?: string;
+  /** Gameplay effect this skin grants when equipped. */
+  effect?: SkinEffect;
+  /** Short label describing the effect, e.g. "Coin magnet". */
+  effectLabel?: string;
 }
+
 
 export interface TrailDef {
   id: string;
@@ -92,8 +107,13 @@ export const SKINS: SkinDef[] = [
   { id: "aurelian", name: "Aurelian", price: 3500, color: "#ffcf5c", emissive: "#ff7b00", metalness: 1, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
   { id: "midnight", name: "Midnight Bloom", price: 4000, color: "#b061ff", emissive: "#ff2fae", metalness: 0.8, roughness: 0.08, limited: true, limitedTag: "Season 1", sparkle: true },
   { id: "cyberdream", name: "Cyberdream", price: 0, gemPrice: 80, color: "#00ffcc", emissive: "#ff00cc", metalness: 0.95, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
-  { id: "phoenixegg", name: "Phoenix Egg", price: 0, gemPrice: 120, color: "#ff9933", emissive: "#ff2200", metalness: 0.9, roughness: 0.1, limited: true, limitedTag: "Founders", sparkle: true },
+  { id: "phoenixegg", name: "Phoenix Egg", price: 0, gemPrice: 120, color: "#ff9933", emissive: "#ff2200", metalness: 0.9, roughness: 0.1, limited: true, limitedTag: "Founders", sparkle: true, effect: "shield", effectLabel: "Auto-revive x1" },
+  // ---- P2W power skins (clearly effect-bearing) ----
+  { id: "magnetron", name: "Magnetron", price: 0, gemPrice: 90, color: "#ff3355", emissive: "#ff88aa", metalness: 0.95, roughness: 0.08, sparkle: true, effect: "magnet", effectLabel: "Coin magnet" },
+  { id: "chronoshift", name: "Chronoshift", price: 0, gemPrice: 110, color: "#88ccff", emissive: "#3366ff", metalness: 0.9, roughness: 0.05, sparkle: true, premium: true, effect: "slowmo", effectLabel: "Slows blades 15%" },
+  { id: "midasorb", name: "Midas Orb", price: 0, gemPrice: 140, color: "#ffdd33", emissive: "#ff9900", metalness: 1, roughness: 0.02, sparkle: true, limited: true, limitedTag: "Founders", effect: "lucky", effectLabel: "+1 bonus coin" },
 ];
+
 
 export const TRAILS: TrailDef[] = [
   { id: "none", name: "None", price: 0, color: "#888888" },
@@ -142,7 +162,12 @@ export const THEMES: ThemeDef[] = [
   { id: "jungle", name: "Jungle", price: 1200, tunnel: "#0a1f0d", fog: "#051207", blade: "#44cc33", accent: "#ffee44", emoji: "🌿" },
   { id: "sakura", name: "Sakura", price: 0, gemPrice: 40, tunnel: "#22101a", fog: "#160810", blade: "#ff88bb", accent: "#ffddee", emoji: "🌸", limited: true, limitedTag: "Season 1" },
   { id: "vaporwave", name: "Vaporwave", price: 0, gemPrice: 55, tunnel: "#1a0a2a", fog: "#0f0518", blade: "#ff44dd", accent: "#00ffee", emoji: "🌴", limited: true, limitedTag: "Season 1" },
+  { id: "aurora", name: "Aurora", price: 1500, tunnel: "#061a20", fog: "#02121a", blade: "#33ffcc", accent: "#88ccff", emoji: "🌌" },
+  { id: "sunset", name: "Sunset Drive", price: 1800, tunnel: "#1a0820", fog: "#0f0414", blade: "#ff6688", accent: "#ffcc44", emoji: "🏝️" },
+  { id: "obsidian", name: "Obsidian Vault", price: 0, gemPrice: 70, tunnel: "#080008", fog: "#050005", blade: "#ff00aa", accent: "#00ffaa", emoji: "🕳️", limited: true, limitedTag: "Founders" },
+  { id: "goldrush", name: "Gold Rush", price: 0, gemPrice: 100, tunnel: "#221408", fog: "#140a05", blade: "#ffd700", accent: "#fff2aa", emoji: "🏆", limited: true, limitedTag: "Founders" },
 ];
+
 
 export const skinById = (id: string) => SKINS.find((s) => s.id === id) ?? SKINS[0];
 export const trailById = (id: string) => TRAILS.find((t) => t.id === id) ?? TRAILS[0];
@@ -158,8 +183,25 @@ export interface GemBundle {
   best?: boolean;
 }
 export const GEM_BUNDLES: GemBundle[] = [
-  { id: "small", gems: 20, priceLabel: "£0.99" },
+  { id: "starter", gems: 20, priceLabel: "£0.99" },
+  { id: "handful", gems: 60, bonus: 5, priceLabel: "£2.49" },
   { id: "medium", gems: 100, bonus: 10, priceLabel: "£3.99" },
   { id: "large", gems: 300, bonus: 60, priceLabel: "£9.99", best: true },
   { id: "mega", gems: 800, bonus: 200, priceLabel: "£19.99" },
+  { id: "titan", gems: 2000, bonus: 700, priceLabel: "£39.99" },
 ];
+
+/** Special one-time offers (no-ads, premium 2x coins) — also simulated IAP. */
+export interface OfferDef {
+  id: "removeAds" | "premium" | "starterPack";
+  title: string;
+  subtitle: string;
+  priceLabel: string;
+  icon: string;
+}
+export const OFFERS: OfferDef[] = [
+  { id: "removeAds", title: "Remove Ads", subtitle: "No more interstitials, ever.", priceLabel: "£2.99", icon: "🚫" },
+  { id: "premium", title: "Premium Pass", subtitle: "Double all coins earned, forever.", priceLabel: "£4.99", icon: "👑" },
+  { id: "starterPack", title: "Starter Pack", subtitle: "500 coins + 40 gems + Ember skin.", priceLabel: "£1.99", icon: "🎁" },
+];
+

@@ -3,9 +3,11 @@ import { useState } from "react";
 import { MenuShell, GameButton } from "@/components/game/MenuShell";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES } from "@/lib/game/cosmetics";
+import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES, OFFERS, type OfferDef } from "@/lib/game/cosmetics";
 import { AdModal } from "@/components/game/AdModal";
+import { PaymentModal } from "@/components/game/PaymentModal";
 import { audio, haptic } from "@/lib/game/audio";
+
 
 export const Route = createFileRoute("/shop")({
   head: () => ({
@@ -35,9 +37,11 @@ type Item = {
 function ShopPage() {
   const hydrated = useHydrated();
   const [tab, setTab] = useState<Tab>("skin");
-  const [ad, setAd] = useState<null | "freegem" | "bundle">(null);
-  const [pendingBundle, setPendingBundle] = useState<{ gems: number; label: string } | null>(null);
+  const [ad, setAd] = useState<null | "freegem">(null);
+  const [payBundle, setPayBundle] = useState<null | { gems: number; label: string }>(null);
+  const [payOffer, setPayOffer] = useState<null | OfferDef>(null);
   const store = useGameStore();
+
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "skin", label: "Balls" },
@@ -121,13 +125,12 @@ function ShopPage() {
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
       ) : tab === "gems" ? (
         <GemsTab
-          onBundle={(b) => {
-            setPendingBundle({ gems: b.gems + (b.bonus ?? 0), label: b.priceLabel });
-            setAd("bundle");
-          }}
+          onBundle={(b) => setPayBundle({ gems: b.gems + (b.bonus ?? 0), label: b.priceLabel })}
+          onOffer={(o) => setPayOffer(o)}
           onFree={() => setAd("freegem")}
           gems={store.gems}
         />
+
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
@@ -191,16 +194,39 @@ function ShopPage() {
           }}
         />
       )}
-      {ad === "bundle" && pendingBundle && (
-        <AdModal
-          kind="rewarded"
-          onSkip={() => setAd(null)}
+      {payBundle && (
+        <PaymentModal
+          title={`${payBundle.gems} gems`}
+          subtitle="Confirm your gem purchase. Payment is simulated in this build."
+          priceLabel={payBundle.label}
+          icon="💎"
+          onCancel={() => setPayBundle(null)}
           onComplete={() => {
-            store.addGems(pendingBundle.gems);
+            store.addGems(payBundle.gems);
             audio.play("gem");
             if (store.hapticsEnabled) haptic([30, 40, 30, 40, 60]);
-            setPendingBundle(null);
-            setAd(null);
+            setPayBundle(null);
+          }}
+        />
+      )}
+      {payOffer && (
+        <PaymentModal
+          title={payOffer.title}
+          subtitle={payOffer.subtitle}
+          priceLabel={payOffer.priceLabel}
+          icon={payOffer.icon}
+          onCancel={() => setPayOffer(null)}
+          onComplete={() => {
+            if (payOffer.id === "removeAds") store.setAdsRemoved(true);
+            else if (payOffer.id === "premium") store.setPremium(true);
+            else if (payOffer.id === "starterPack") {
+              store.addCoins(500);
+              store.addGems(40);
+              store.grantItem("skin", "ember");
+            }
+            audio.play("purchase");
+            if (store.hapticsEnabled) haptic([20, 40, 20]);
+            setPayOffer(null);
           }}
         />
       )}
@@ -208,15 +234,19 @@ function ShopPage() {
   );
 }
 
+
 function GemsTab({
   onBundle,
+  onOffer,
   onFree,
   gems,
 }: {
   onBundle: (b: (typeof GEM_BUNDLES)[number]) => void;
+  onOffer: (o: OfferDef) => void;
   onFree: () => void;
   gems: number;
 }) {
+
   return (
     <div className="flex flex-col gap-4">
       <div className="rounded-2xl border border-primary/40 bg-card p-4 text-center">
@@ -262,9 +292,32 @@ function GemsTab({
           </div>
         ))}
       </div>
+      <div className="mt-2">
+        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Special offers</div>
+        <div className="flex flex-col gap-2">
+          {OFFERS.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => onOffer(o)}
+              className="flex items-center justify-between rounded-2xl border border-primary/40 bg-card px-4 py-3 text-left active:scale-95"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden>{o.icon}</span>
+                <div>
+                  <div className="font-display text-sm font-bold">{o.title}</div>
+                  <div className="text-[11px] text-muted-foreground">{o.subtitle}</div>
+                </div>
+              </div>
+              <span className="font-display text-sm font-black text-gold">{o.priceLabel}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <p className="text-center text-xs text-muted-foreground">
-        Bundle purchases are simulated in this build. Real in-app purchases plug in at native release.
+        Purchases are simulated in this build. Real in-app purchases plug in at native release.
       </p>
     </div>
+
   );
 }

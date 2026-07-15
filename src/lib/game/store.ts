@@ -279,7 +279,7 @@ export const useGameStore = create<GameStore>()(
           let unlockedLevel = s.unlockedLevel;
           const levelBestTimes = { ...s.levelBestTimes };
           if (won && mode === "level" && level) {
-            unlockedLevel = Math.max(unlockedLevel, Math.min(150, level + 1));
+            unlockedLevel = Math.max(unlockedLevel, Math.min(300, level + 1));
             if (levelBestTimes[level] === undefined || time < levelBestTimes[level]) {
               levelBestTimes[level] = time;
             }
