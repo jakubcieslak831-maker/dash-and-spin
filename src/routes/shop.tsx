@@ -125,13 +125,12 @@ function ShopPage() {
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
       ) : tab === "gems" ? (
         <GemsTab
-          onBundle={(b) => {
-            setPendingBundle({ gems: b.gems + (b.bonus ?? 0), label: b.priceLabel });
-            setAd("bundle");
-          }}
+          onBundle={(b) => setPayBundle({ gems: b.gems + (b.bonus ?? 0), label: b.priceLabel })}
+          onOffer={(o) => setPayOffer(o)}
           onFree={() => setAd("freegem")}
           gems={store.gems}
         />
+
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
