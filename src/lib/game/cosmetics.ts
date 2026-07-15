@@ -107,8 +107,13 @@ export const SKINS: SkinDef[] = [
   { id: "aurelian", name: "Aurelian", price: 3500, color: "#ffcf5c", emissive: "#ff7b00", metalness: 1, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
   { id: "midnight", name: "Midnight Bloom", price: 4000, color: "#b061ff", emissive: "#ff2fae", metalness: 0.8, roughness: 0.08, limited: true, limitedTag: "Season 1", sparkle: true },
   { id: "cyberdream", name: "Cyberdream", price: 0, gemPrice: 80, color: "#00ffcc", emissive: "#ff00cc", metalness: 0.95, roughness: 0.05, limited: true, limitedTag: "Season 1", sparkle: true },
-  { id: "phoenixegg", name: "Phoenix Egg", price: 0, gemPrice: 120, color: "#ff9933", emissive: "#ff2200", metalness: 0.9, roughness: 0.1, limited: true, limitedTag: "Founders", sparkle: true },
+  { id: "phoenixegg", name: "Phoenix Egg", price: 0, gemPrice: 120, color: "#ff9933", emissive: "#ff2200", metalness: 0.9, roughness: 0.1, limited: true, limitedTag: "Founders", sparkle: true, effect: "shield", effectLabel: "Auto-revive x1" },
+  // ---- P2W power skins (clearly effect-bearing) ----
+  { id: "magnetron", name: "Magnetron", price: 0, gemPrice: 90, color: "#ff3355", emissive: "#ff88aa", metalness: 0.95, roughness: 0.08, sparkle: true, effect: "magnet", effectLabel: "Coin magnet" },
+  { id: "chronoshift", name: "Chronoshift", price: 0, gemPrice: 110, color: "#88ccff", emissive: "#3366ff", metalness: 0.9, roughness: 0.05, sparkle: true, premium: true, effect: "slowmo", effectLabel: "Slows blades 15%" },
+  { id: "midasorb", name: "Midas Orb", price: 0, gemPrice: 140, color: "#ffdd33", emissive: "#ff9900", metalness: 1, roughness: 0.02, sparkle: true, limited: true, limitedTag: "Founders", effect: "lucky", effectLabel: "+1 bonus coin" },
 ];
+
 
 export const TRAILS: TrailDef[] = [
   { id: "none", name: "None", price: 0, color: "#888888" },
