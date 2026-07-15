@@ -67,6 +67,26 @@ const MAX_BLADE_SPIN = 3.6; // rad/s (~206°/s)
 /** absolute floor on gap width so every blade is completable */
 const MIN_GAP_DEG = 55;
 
+/** Radial-gradient sprite used for trail points so they render soft/circular
+ *  (default THREE.Points squares are what caused the "cube-like" trail). */
+let _softCircleTex: THREE.Texture | null = null;
+function softCircleTexture(): THREE.Texture {
+  if (_softCircleTex) return _softCircleTex;
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.35, "rgba(255,255,255,0.75)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+  _softCircleTex = new THREE.CanvasTexture(canvas);
+  return _softCircleTex;
+}
+
+
 /** Minimal obstacle contract — makes new obstacle types trivial to add. */
 interface Obstacle {
   z: number;
