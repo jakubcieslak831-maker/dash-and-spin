@@ -14,7 +14,7 @@
  * always plays the same — great for practice and fair competition.
  */
 
-export const MAX_LEVEL = 150;
+export const MAX_LEVEL = 300;
 
 export interface LevelConfig {
   level: number;
