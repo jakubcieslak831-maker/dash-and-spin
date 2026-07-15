@@ -292,9 +292,32 @@ function GemsTab({
           </div>
         ))}
       </div>
+      <div className="mt-2">
+        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Special offers</div>
+        <div className="flex flex-col gap-2">
+          {OFFERS.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => onOffer(o)}
+              className="flex items-center justify-between rounded-2xl border border-primary/40 bg-card px-4 py-3 text-left active:scale-95"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl" aria-hidden>{o.icon}</span>
+                <div>
+                  <div className="font-display text-sm font-bold">{o.title}</div>
+                  <div className="text-[11px] text-muted-foreground">{o.subtitle}</div>
+                </div>
+              </div>
+              <span className="font-display text-sm font-black text-gold">{o.priceLabel}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <p className="text-center text-xs text-muted-foreground">
-        Bundle purchases are simulated in this build. Real in-app purchases plug in at native release.
+        Purchases are simulated in this build. Real in-app purchases plug in at native release.
       </p>
     </div>
+
   );
 }
