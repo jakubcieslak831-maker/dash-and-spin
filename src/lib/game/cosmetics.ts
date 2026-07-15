@@ -162,7 +162,12 @@ export const THEMES: ThemeDef[] = [
   { id: "jungle", name: "Jungle", price: 1200, tunnel: "#0a1f0d", fog: "#051207", blade: "#44cc33", accent: "#ffee44", emoji: "🌿" },
   { id: "sakura", name: "Sakura", price: 0, gemPrice: 40, tunnel: "#22101a", fog: "#160810", blade: "#ff88bb", accent: "#ffddee", emoji: "🌸", limited: true, limitedTag: "Season 1" },
   { id: "vaporwave", name: "Vaporwave", price: 0, gemPrice: 55, tunnel: "#1a0a2a", fog: "#0f0518", blade: "#ff44dd", accent: "#00ffee", emoji: "🌴", limited: true, limitedTag: "Season 1" },
+  { id: "aurora", name: "Aurora", price: 1500, tunnel: "#061a20", fog: "#02121a", blade: "#33ffcc", accent: "#88ccff", emoji: "🌌" },
+  { id: "sunset", name: "Sunset Drive", price: 1800, tunnel: "#1a0820", fog: "#0f0414", blade: "#ff6688", accent: "#ffcc44", emoji: "🏝️" },
+  { id: "obsidian", name: "Obsidian Vault", price: 0, gemPrice: 70, tunnel: "#080008", fog: "#050005", blade: "#ff00aa", accent: "#00ffaa", emoji: "🕳️", limited: true, limitedTag: "Founders" },
+  { id: "goldrush", name: "Gold Rush", price: 0, gemPrice: 100, tunnel: "#221408", fog: "#140a05", blade: "#ffd700", accent: "#fff2aa", emoji: "🏆", limited: true, limitedTag: "Founders" },
 ];
+
 
 export const skinById = (id: string) => SKINS.find((s) => s.id === id) ?? SKINS[0];
 export const trailById = (id: string) => TRAILS.find((t) => t.id === id) ?? TRAILS[0];
