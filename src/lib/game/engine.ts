@@ -452,7 +452,7 @@ export class BladeRunEngine {
   private buildChest() {
     const g = new THREE.Group();
 
-    const wood = new THREE.MeshStandardMaterial({ color: "#5b3418", roughness: 0.55, metalness: 0.15 });
+    const wood = new THREE.MeshStandardMaterial({ color: "#5b3418", roughness: 0.55, metalness: 0.15, side: THREE.DoubleSide });
     const woodDark = new THREE.MeshStandardMaterial({ color: "#3d2210", roughness: 0.65, metalness: 0.1 });
     const gold = new THREE.MeshStandardMaterial({
       color: "#ffcf47",
@@ -533,6 +533,7 @@ export class BladeRunEngine {
     const inner = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), glowMat);
     inner.position.y = H - 0.05;
     inner.name = "innerGlow";
+    inner.visible = false; // revealed when the lid flips open
     g.add(inner);
 
     // halo ring behind the chest
@@ -547,7 +548,7 @@ export class BladeRunEngine {
       new THREE.MeshBasicMaterial({
         color: "#ffdb8a",
         transparent: true,
-        opacity: 0.14,
+        opacity: 0.07,
         side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -589,7 +590,7 @@ export class BladeRunEngine {
     g.add(pad);
 
     g.position.set(0, -0.4, this.finishZ + 3);
-    const light = new THREE.PointLight(0xffce55, 26, 24, 2);
+    const light = new THREE.PointLight(0xffce55, 18, 24, 2);
     light.position.set(0, 1.2, 1.6);
     g.add(light);
     this.chestLight = light;
@@ -883,11 +884,13 @@ export class BladeRunEngine {
       // overshoot easing for a satisfying flip
       const o = open === 0 ? 0 : 1 - Math.pow(2, -9 * open) * Math.cos(open * 9);
       this.chestLid.rotation.x = -o * 2.0;
+      const ig = this.chest.getObjectByName("innerGlow");
+      if (ig) ig.visible = open > 0.12;
     }
-    if (this.chestLight) this.chestLight.intensity = 26 + Math.max(0, 90 * (1 - Math.abs(t - 0.65) * 2.5));
+    if (this.chestLight) this.chestLight.intensity = 18 + Math.max(0, 55 * (1 - Math.abs(t - 0.65) * 2.5));
     if (this.chestBeam) {
       const m = this.chestBeam.material as THREE.MeshBasicMaterial;
-      m.opacity = Math.min(0.5, 0.14 + Math.max(0, (t - 0.55)) * 0.6);
+      m.opacity = Math.min(0.42, 0.07 + Math.max(0, t - 0.55) * 0.6);
     }
 
     // hand the result back once the show has landed
