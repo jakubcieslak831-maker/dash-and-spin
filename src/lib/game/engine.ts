@@ -548,7 +548,7 @@ export class BladeRunEngine {
       new THREE.MeshBasicMaterial({
         color: "#ffdb8a",
         transparent: true,
-        opacity: 0.07,
+        opacity: 0,
         side: THREE.DoubleSide,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -890,7 +890,7 @@ export class BladeRunEngine {
     if (this.chestLight) this.chestLight.intensity = 18 + Math.max(0, 55 * (1 - Math.abs(t - 0.65) * 2.5));
     if (this.chestBeam) {
       const m = this.chestBeam.material as THREE.MeshBasicMaterial;
-      m.opacity = Math.min(0.42, 0.07 + Math.max(0, t - 0.55) * 0.6);
+      m.opacity = Math.min(0.4, Math.max(0, t - 0.55) * 0.8);
     }
 
     // hand the result back once the show has landed
