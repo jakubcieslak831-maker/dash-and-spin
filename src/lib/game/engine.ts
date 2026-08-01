@@ -739,12 +739,21 @@ export class BladeRunEngine {
     }
 
 
-    // win
-    if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ) {
+    // win — kick off the chest-opening celebration; onWin fires when it ends
+    if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ + 3.2) {
       this.won = true;
-      this.cb.onWin(this.elapsed, this.coins, this.totalBlades);
+      this.winT = 0;
+      this.winFired = false;
+      this.cb.onHud({
+        timeLeft: this.elapsed,
+        elapsed: this.elapsed,
+        blade: this.totalBlades,
+        totalBlades: this.totalBlades,
+        coins: this.coins,
+      });
       return;
     }
+
 
     // HUD throttle (~8/s)
     this.hudAccum += dt;
