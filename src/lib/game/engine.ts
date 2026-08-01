@@ -223,6 +223,15 @@ export class BladeRunEngine {
   private ballLight: THREE.PointLight;
   private tunnel: THREE.Mesh;
   private chest: THREE.Group | null = null;
+  private chestLid: THREE.Group | null = null;
+  private chestLight: THREE.PointLight | null = null;
+  private chestBeam: THREE.Mesh | null = null;
+  private chestSparks: THREE.Points | null = null;
+  private chestSparkPhase: Float32Array | null = null;
+  private winT = 0;
+  private winFired = false;
+  private goldBurst: THREE.Points | null = null;
+  private goldVel: THREE.Vector3[] = [];
   private obstacles: Obstacle[] = [];
   private coinMeshes: { mesh: THREE.Mesh; z: number; phi: number; taken: boolean }[] = [];
   private trailPoints: THREE.Points;
@@ -231,6 +240,7 @@ export class BladeRunEngine {
   private trailIdx = 0;
   private explosionPoints: THREE.Points | null = null;
   private explosionVel: THREE.Vector3[] = [];
+
 
   private rng: () => number;
   private cfg: EngineConfig;
