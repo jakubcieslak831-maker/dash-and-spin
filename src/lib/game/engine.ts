@@ -919,7 +919,7 @@ export class BladeRunEngine {
 
 
     // trail — emit multiple interpolated points between frames for smoothness
-    if (this.running && !this.dead && this.cfg.trail.id !== "none") {
+    if (this.running && !this.dead && !this.won && this.cfg.trail.id !== "none") {
       const N = this.trailData.length / 3;
       const c1 = new THREE.Color(this.cfg.trail.color);
       const c2 = new THREE.Color(this.cfg.trail.color2 ?? this.cfg.trail.color);
