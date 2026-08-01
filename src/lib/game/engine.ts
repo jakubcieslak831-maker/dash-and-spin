@@ -223,6 +223,15 @@ export class BladeRunEngine {
   private ballLight: THREE.PointLight;
   private tunnel: THREE.Mesh;
   private chest: THREE.Group | null = null;
+  private chestLid: THREE.Group | null = null;
+  private chestLight: THREE.PointLight | null = null;
+  private chestBeam: THREE.Mesh | null = null;
+  private chestSparks: THREE.Points | null = null;
+  private chestSparkPhase: Float32Array | null = null;
+  private winT = 0;
+  private winFired = false;
+  private goldBurst: THREE.Points | null = null;
+  private goldVel: THREE.Vector3[] = [];
   private obstacles: Obstacle[] = [];
   private coinMeshes: { mesh: THREE.Mesh; z: number; phi: number; taken: boolean }[] = [];
   private trailPoints: THREE.Points;
@@ -231,6 +240,7 @@ export class BladeRunEngine {
   private trailIdx = 0;
   private explosionPoints: THREE.Points | null = null;
   private explosionVel: THREE.Vector3[] = [];
+
 
   private rng: () => number;
   private cfg: EngineConfig;
@@ -285,9 +295,18 @@ export class BladeRunEngine {
     }
     this.timeLimit = Infinity;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "low-power" });
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: window.devicePixelRatio < 2,
+      powerPreference: "high-performance",
+      stencil: false,
+    });
+    // cap DPR: sharp on phones, but never render more pixels than we need
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
 
     this.camera = new THREE.PerspectiveCamera(72, canvas.clientWidth / canvas.clientHeight, 0.1, 120);
 
@@ -425,24 +444,161 @@ export class BladeRunEngine {
     this.nextEndlessIdx = initial;
   }
 
+  /**
+   * A proper treasure chest: dark lacquered oak body, rounded gold-banded lid,
+   * corner studs, a lock plate, a glowing halo ring behind it and a soft light
+   * shaft. Floats in the middle of the tunnel so the run finishes head-on.
+   */
   private buildChest() {
     const g = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ color: "#8b5a2b", roughness: 0.7 });
-    const gold = new THREE.MeshStandardMaterial({ color: "#ffd700", emissive: "#886600", emissiveIntensity: 0.6, metalness: 1, roughness: 0.2 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1, 1), wood);
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 1), wood);
-    lid.position.y = 0.7;
-    lid.rotation.x = -0.5;
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), gold);
-    glow.position.y = 0.7;
-    const band = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.05, 0.2), gold);
-    g.add(body, lid, glow, band);
-    g.position.set(0, -(TUNNEL_RADIUS - 0.7), this.finishZ + 3);
-    const light = new THREE.PointLight(0xffd700, 20, 18);
-    light.position.copy(g.position).add(new THREE.Vector3(0, 1, 2));
-    this.scene.add(g, light);
+
+    const wood = new THREE.MeshStandardMaterial({ color: "#5b3418", roughness: 0.55, metalness: 0.15, side: THREE.DoubleSide });
+    const woodDark = new THREE.MeshStandardMaterial({ color: "#3d2210", roughness: 0.65, metalness: 0.1 });
+    const gold = new THREE.MeshStandardMaterial({
+      color: "#ffcf47",
+      emissive: "#8a6100",
+      emissiveIntensity: 0.55,
+      metalness: 1,
+      roughness: 0.22,
+    });
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: "#ffd97a",
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const W = 1.7,
+      H = 0.95,
+      D = 1.15;
+
+    // --- base ---
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), wood);
+    body.position.y = H / 2;
+    g.add(body);
+
+    // vertical plank grooves
+    for (let i = -1; i <= 1; i++) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(0.06, H * 0.98, D + 0.02), woodDark);
+      plank.position.set(i * 0.45, H / 2, 0);
+      g.add(plank);
+    }
+
+    // gold bands around the base
+    for (const bx of [-W / 2 + 0.16, W / 2 - 0.16]) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.12, H + 0.04, D + 0.04), gold);
+      band.position.set(bx, H / 2, 0);
+      g.add(band);
+    }
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.1, D + 0.06), gold);
+    rim.position.y = H;
+    g.add(rim);
+
+    // corner studs
+    for (const sx of [-1, 1])
+      for (const sz of [-1, 1]) {
+        const stud = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), gold);
+        stud.position.set(sx * (W / 2 - 0.06), 0.16, sz * (D / 2 - 0.06));
+        g.add(stud);
+      }
+
+    // --- lid (hinged group, pivots at the back edge) ---
+    const lid = new THREE.Group();
+    lid.position.set(0, H, -D / 2);
+    const shell = new THREE.Mesh(new THREE.CylinderGeometry(D / 2, D / 2, W, 20, 1, false, 0, Math.PI), wood);
+    shell.rotation.z = Math.PI / 2;
+    shell.position.set(0, 0, D / 2);
+    lid.add(shell);
+    for (const bx of [-W / 2 + 0.16, W / 2 - 0.16]) {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(D / 2 + 0.01, 0.045, 8, 20, Math.PI),
+        gold,
+      );
+      arc.rotation.y = Math.PI / 2;
+      arc.position.set(bx, 0, D / 2);
+      lid.add(arc);
+    }
+    g.add(lid);
+    this.chestLid = lid;
+
+    // lock plate + keyhole
+    const lock = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.08), gold);
+    lock.position.set(0, H - 0.14, D / 2 + 0.02);
+    const keyhole = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), woodDark);
+    keyhole.position.set(0, H - 0.14, D / 2 + 0.07);
+    g.add(lock, keyhole);
+
+    // --- treasure glow inside the chest ---
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), glowMat);
+    inner.position.y = H - 0.05;
+    inner.name = "innerGlow";
+    inner.visible = false; // revealed when the lid flips open
+    g.add(inner);
+
+    // halo ring behind the chest
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.05, 8, 48), glowMat);
+    halo.position.set(0, H / 2, -0.9);
+    halo.name = "halo";
+    g.add(halo);
+
+    // soft light shaft rising out of the chest
+    const beam = new THREE.Mesh(
+      new THREE.ConeGeometry(1.05, 4.2, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: "#ffdb8a",
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    beam.position.y = H + 2.0;
+    g.add(beam);
+    this.chestBeam = beam;
+
+    // orbiting sparkles
+    const SP = this.cfg.reducedMotion ? 14 : 44;
+    const spPos = new Float32Array(SP * 3);
+    this.chestSparkPhase = new Float32Array(SP * 3);
+    for (let i = 0; i < SP; i++) {
+      this.chestSparkPhase[i * 3] = Math.random() * Math.PI * 2; // angle
+      this.chestSparkPhase[i * 3 + 1] = 0.9 + Math.random() * 1.2; // radius
+      this.chestSparkPhase[i * 3 + 2] = Math.random() * 2.4; // height offset
+    }
+    const spGeo = new THREE.BufferGeometry();
+    spGeo.setAttribute("position", new THREE.BufferAttribute(spPos, 3));
+    this.chestSparks = new THREE.Points(
+      spGeo,
+      new THREE.PointsMaterial({
+        color: "#ffe6a3",
+        size: 0.13,
+        map: softCircleTexture(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      }),
+    );
+    g.add(this.chestSparks);
+
+    // pedestal ring the chest floats above
+    const pad = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.06, 8, 40), gold);
+    pad.rotation.x = Math.PI / 2;
+    pad.position.y = -0.25;
+    g.add(pad);
+
+    g.position.set(0, -0.4, this.finishZ + 3);
+    const light = new THREE.PointLight(0xffce55, 18, 24, 2);
+    light.position.set(0, 1.2, 1.6);
+    g.add(light);
+    this.chestLight = light;
+
+    this.scene.add(g);
     this.chest = g;
   }
+
 
   /* ---------------- public controls ---------------- */
 
@@ -584,12 +740,21 @@ export class BladeRunEngine {
     }
 
 
-    // win
-    if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ) {
+    // win — kick off the chest-opening celebration; onWin fires when it ends
+    if (this.cfg.mode !== "endless" && this.ballZ <= this.finishZ + 3.2) {
       this.won = true;
-      this.cb.onWin(this.elapsed, this.coins, this.totalBlades);
+      this.winT = 0;
+      this.winFired = false;
+      this.cb.onHud({
+        timeLeft: this.elapsed,
+        elapsed: this.elapsed,
+        blade: this.totalBlades,
+        totalBlades: this.totalBlades,
+        coins: this.coins,
+      });
       return;
     }
+
 
     // HUD throttle (~8/s)
     this.hudAccum += dt;
@@ -649,22 +814,115 @@ export class BladeRunEngine {
     this.scene.add(this.explosionPoints);
   }
 
+  /* ---------------- victory celebration ---------------- */
+
+  /** Golden coin/spark burst out of the chest. */
+  private spawnGoldBurst(origin: THREE.Vector3) {
+    const N = this.cfg.reducedMotion ? 30 : 140;
+    const pos = new Float32Array(N * 3);
+    this.goldVel = [];
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = origin.x;
+      pos[i * 3 + 1] = origin.y;
+      pos[i * 3 + 2] = origin.z;
+      const a = Math.random() * Math.PI * 2;
+      const spread = 1.6 + Math.random() * 3.4;
+      this.goldVel.push(
+        new THREE.Vector3(Math.cos(a) * spread, 4.5 + Math.random() * 5.5, Math.sin(a) * spread * 0.7 + 1.2),
+      );
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    this.goldBurst = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        color: "#ffd76a",
+        size: 0.2,
+        map: softCircleTexture(),
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.scene.add(this.goldBurst);
+  }
+
+  /** Drives the whole win sequence: ball dives in, lid flips open, gold erupts. */
+  private updateWin(dt: number) {
+    if (!this.chest) return;
+    const prev = this.winT;
+    this.winT += dt;
+    const t = this.winT;
+    const cz = this.chest.position.z;
+    const cy = this.chest.position.y;
+
+    // 0.00–0.55s: ball arcs into the chest mouth and shrinks away
+    const dive = Math.min(1, t / 0.55);
+    const e = 1 - Math.pow(1 - dive, 3);
+    const startX = RIDE_R * Math.cos(this.phi);
+    const startY = RIDE_R * Math.sin(this.phi);
+    this.ball.position.set(
+      startX * (1 - e),
+      startY * (1 - e) + (cy + 0.9) * e + Math.sin(dive * Math.PI) * 0.7,
+      this.ballZ + (cz + 0.2 - this.ballZ) * e,
+    );
+    const s = Math.max(0.001, 1 - Math.max(0, (t - 0.35) / 0.25));
+    this.ball.scale.setScalar(s);
+    this.ball.visible = t < 0.6;
+    this.ballLight.position.copy(this.ball.position);
+    this.ballLight.intensity = 14 + Math.max(0, 30 * (1 - Math.abs(t - 0.6) * 3));
+
+    // 0.55s: lid slams open + gold erupts
+    if (prev < 0.55 && t >= 0.55) {
+      this.spawnGoldBurst(new THREE.Vector3(this.chest.position.x, cy + 1.0, cz));
+      if (!this.cfg.reducedMotion) this.shakeT = 0.35;
+    }
+    if (this.chestLid) {
+      const open = Math.min(1, Math.max(0, (t - 0.55) / 0.5));
+      // overshoot easing for a satisfying flip
+      const o = open === 0 ? 0 : 1 - Math.pow(2, -9 * open) * Math.cos(open * 9);
+      this.chestLid.rotation.x = -o * 2.0;
+      const ig = this.chest.getObjectByName("innerGlow");
+      if (ig) ig.visible = open > 0.12;
+    }
+    if (this.chestLight) this.chestLight.intensity = 18 + Math.max(0, 55 * (1 - Math.abs(t - 0.65) * 2.5));
+    if (this.chestBeam) {
+      const m = this.chestBeam.material as THREE.MeshBasicMaterial;
+      m.opacity = Math.min(0.4, Math.max(0, t - 0.55) * 0.8);
+    }
+
+    // hand the result back once the show has landed
+    if (!this.winFired && t >= 1.35) {
+      this.winFired = true;
+      this.cb.onWin(this.elapsed, this.coins, this.totalBlades);
+    }
+  }
+
   /* ---------------- rendering ---------------- */
 
   private render(dt: number) {
+    const winning = this.won && this.chest !== null;
+
     // ball placement around the tunnel + rolling
     const x = RIDE_R * Math.cos(this.phi);
     const y = RIDE_R * Math.sin(this.phi);
-    this.ball.position.set(x, y, this.ballZ);
-    this.ball.rotation.x -= (this.speed / BALL_RADIUS) * dt;
-    this.ballLight.position.set(x * 0.6, y * 0.6, this.ballZ + 1);
+    if (winning) {
+      this.updateWin(dt);
+    } else {
+      this.ball.position.set(x, y, this.ballZ);
+      this.ball.rotation.x -= (this.speed / BALL_RADIUS) * dt;
+      this.ballLight.position.set(x * 0.6, y * 0.6, this.ballZ + 1);
 
-    // invulnerability blink
-    if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
-    else if (!this.dead) this.ball.visible = true;
+      // invulnerability blink
+      if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
+      else if (!this.dead) this.ball.visible = true;
+    }
+
 
     // trail — emit multiple interpolated points between frames for smoothness
-    if (this.running && !this.dead && this.cfg.trail.id !== "none") {
+    if (this.running && !this.dead && !this.won && this.cfg.trail.id !== "none") {
       const N = this.trailData.length / 3;
       const c1 = new THREE.Color(this.cfg.trail.color);
       const c2 = new THREE.Color(this.cfg.trail.color2 ?? this.cfg.trail.color);
@@ -704,8 +962,44 @@ export class BladeRunEngine {
       mat.opacity = Math.max(0, mat.opacity - dt * 1.2);
     }
 
-    // chest idle bob
-    if (this.chest) this.chest.rotation.y += dt * 0.8;
+    // gold burst particles (victory)
+    if (this.goldBurst) {
+      const attr = this.goldBurst.geometry.getAttribute("position") as THREE.BufferAttribute;
+      for (let i = 0; i < this.goldVel.length; i++) {
+        const v = this.goldVel[i];
+        v.y -= 9.0 * dt;
+        v.multiplyScalar(1 - 0.6 * dt);
+        attr.setXYZ(i, attr.getX(i) + v.x * dt, attr.getY(i) + v.y * dt, attr.getZ(i) + v.z * dt);
+      }
+      attr.needsUpdate = true;
+      const gm = this.goldBurst.material as THREE.PointsMaterial;
+      gm.opacity = Math.max(0, gm.opacity - dt * 0.45);
+    }
+
+    // chest: gentle float, halo pulse, orbiting sparkles
+    if (this.chest) {
+      const tt = this.elapsed + performance.now() / 1000;
+      this.chest.position.y = -0.4 + Math.sin(tt * 1.3) * 0.1;
+      this.chest.rotation.y = Math.sin(tt * 0.5) * 0.28;
+      const halo = this.chest.getObjectByName("halo") as THREE.Mesh | undefined;
+      if (halo) {
+        halo.rotation.z += dt * 0.6;
+        (halo.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(tt * 2.2) * 0.18;
+      }
+      const inner = this.chest.getObjectByName("innerGlow") as THREE.Mesh | undefined;
+      if (inner) inner.scale.setScalar(1 + Math.sin(tt * 3.4) * 0.12);
+      if (this.chestSparks && this.chestSparkPhase) {
+        const attr = this.chestSparks.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const n = this.chestSparkPhase.length / 3;
+        for (let i = 0; i < n; i++) {
+          const a = this.chestSparkPhase[i * 3] + tt * 0.8;
+          const r = this.chestSparkPhase[i * 3 + 1];
+          const h = (this.chestSparkPhase[i * 3 + 2] + tt * 0.6) % 2.6;
+          attr.setXYZ(i, Math.cos(a) * r, h - 0.2, Math.sin(a) * r * 0.6);
+        }
+        attr.needsUpdate = true;
+      }
+    }
 
     // tunnel follows ball so it never ends
     this.tunnel.position.z = this.ballZ - 150;
@@ -719,10 +1013,22 @@ export class BladeRunEngine {
       sx = (Math.random() - 0.5) * s;
       sy = (Math.random() - 0.5) * s;
     }
-    const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
-    this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
-    this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
+    if (winning && this.chest) {
+      // push in on the chest for the reveal
+      const cz = this.chest.position.z;
+      const k = Math.min(1, this.winT / 1.1);
+      const target = new THREE.Vector3(sx, 0.9 + 0.5 * k, cz + 6.4 - 2.1 * k + sy);
+      this.camera.position.lerp(target, 1 - Math.pow(0.02, dt));
+      this.camera.lookAt(0, this.chest.position.y + 0.7, cz);
+      this.camera.fov += ((this.cfg.reducedMotion ? 72 : 62) - this.camera.fov) * (1 - Math.pow(0.05, dt));
+      this.camera.updateProjectionMatrix();
+    } else {
+      const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
+      this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
+      this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
+    }
 
     this.renderer.render(this.scene, this.camera);
   }
 }
+
