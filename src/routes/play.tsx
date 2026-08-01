@@ -126,6 +126,7 @@ function PlayScreen() {
       return;
     }
     engineRef.current = engine;
+    (window as any).__blade = engine;
 
     const onResize = () => engine.resize(canvas.clientWidth, canvas.clientHeight);
     window.addEventListener("resize", onResize);
