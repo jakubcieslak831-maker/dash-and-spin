@@ -295,9 +295,18 @@ export class BladeRunEngine {
     }
     this.timeLimit = Infinity;
 
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: "low-power" });
+    this.renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: window.devicePixelRatio < 2,
+      powerPreference: "high-performance",
+      stencil: false,
+    });
+    // cap DPR: sharp on phones, but never render more pixels than we need
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     this.renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+
 
     this.camera = new THREE.PerspectiveCamera(72, canvas.clientWidth / canvas.clientHeight, 0.1, 120);
 
