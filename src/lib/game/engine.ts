@@ -959,8 +959,44 @@ export class BladeRunEngine {
       mat.opacity = Math.max(0, mat.opacity - dt * 1.2);
     }
 
-    // chest idle bob
-    if (this.chest) this.chest.rotation.y += dt * 0.8;
+    // gold burst particles (victory)
+    if (this.goldBurst) {
+      const attr = this.goldBurst.geometry.getAttribute("position") as THREE.BufferAttribute;
+      for (let i = 0; i < this.goldVel.length; i++) {
+        const v = this.goldVel[i];
+        v.y -= 9.0 * dt;
+        v.multiplyScalar(1 - 0.6 * dt);
+        attr.setXYZ(i, attr.getX(i) + v.x * dt, attr.getY(i) + v.y * dt, attr.getZ(i) + v.z * dt);
+      }
+      attr.needsUpdate = true;
+      const gm = this.goldBurst.material as THREE.PointsMaterial;
+      gm.opacity = Math.max(0, gm.opacity - dt * 0.45);
+    }
+
+    // chest: gentle float, halo pulse, orbiting sparkles
+    if (this.chest) {
+      const tt = this.elapsed + performance.now() / 1000;
+      this.chest.position.y = -0.4 + Math.sin(tt * 1.3) * 0.1;
+      this.chest.rotation.y = Math.sin(tt * 0.5) * 0.28;
+      const halo = this.chest.getObjectByName("halo") as THREE.Mesh | undefined;
+      if (halo) {
+        halo.rotation.z += dt * 0.6;
+        (halo.material as THREE.MeshBasicMaterial).opacity = 0.35 + Math.sin(tt * 2.2) * 0.18;
+      }
+      const inner = this.chest.getObjectByName("innerGlow") as THREE.Mesh | undefined;
+      if (inner) inner.scale.setScalar(1 + Math.sin(tt * 3.4) * 0.12);
+      if (this.chestSparks && this.chestSparkPhase) {
+        const attr = this.chestSparks.geometry.getAttribute("position") as THREE.BufferAttribute;
+        const n = this.chestSparkPhase.length / 3;
+        for (let i = 0; i < n; i++) {
+          const a = this.chestSparkPhase[i * 3] + tt * 0.8;
+          const r = this.chestSparkPhase[i * 3 + 1];
+          const h = (this.chestSparkPhase[i * 3 + 2] + tt * 0.6) % 2.6;
+          attr.setXYZ(i, Math.cos(a) * r, h - 0.2, Math.sin(a) * r * 0.6);
+        }
+        attr.needsUpdate = true;
+      }
+    }
 
     // tunnel follows ball so it never ends
     this.tunnel.position.z = this.ballZ - 150;
@@ -974,10 +1010,22 @@ export class BladeRunEngine {
       sx = (Math.random() - 0.5) * s;
       sy = (Math.random() - 0.5) * s;
     }
-    const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
-    this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
-    this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
+    if (winning && this.chest) {
+      // push in on the chest for the reveal
+      const cz = this.chest.position.z;
+      const k = Math.min(1, this.winT / 1.1);
+      const target = new THREE.Vector3(sx, 0.9 + 0.5 * k, cz + 6.4 - 2.1 * k + sy);
+      this.camera.position.lerp(target, 1 - Math.pow(0.02, dt));
+      this.camera.lookAt(0, this.chest.position.y + 0.7, cz);
+      this.camera.fov += ((this.cfg.reducedMotion ? 72 : 62) - this.camera.fov) * (1 - Math.pow(0.05, dt));
+      this.camera.updateProjectionMatrix();
+    } else {
+      const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
+      this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
+      this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
+    }
 
     this.renderer.render(this.scene, this.camera);
   }
 }
+
