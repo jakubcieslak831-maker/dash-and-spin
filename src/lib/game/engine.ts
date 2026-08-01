@@ -813,19 +813,110 @@ export class BladeRunEngine {
     this.scene.add(this.explosionPoints);
   }
 
+  /* ---------------- victory celebration ---------------- */
+
+  /** Golden coin/spark burst out of the chest. */
+  private spawnGoldBurst(origin: THREE.Vector3) {
+    const N = this.cfg.reducedMotion ? 30 : 140;
+    const pos = new Float32Array(N * 3);
+    this.goldVel = [];
+    for (let i = 0; i < N; i++) {
+      pos[i * 3] = origin.x;
+      pos[i * 3 + 1] = origin.y;
+      pos[i * 3 + 2] = origin.z;
+      const a = Math.random() * Math.PI * 2;
+      const spread = 1.6 + Math.random() * 3.4;
+      this.goldVel.push(
+        new THREE.Vector3(Math.cos(a) * spread, 4.5 + Math.random() * 5.5, Math.sin(a) * spread * 0.7 + 1.2),
+      );
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+    this.goldBurst = new THREE.Points(
+      geo,
+      new THREE.PointsMaterial({
+        color: "#ffd76a",
+        size: 0.2,
+        map: softCircleTexture(),
+        transparent: true,
+        opacity: 1,
+        depthWrite: false,
+        sizeAttenuation: true,
+        blending: THREE.AdditiveBlending,
+      }),
+    );
+    this.scene.add(this.goldBurst);
+  }
+
+  /** Drives the whole win sequence: ball dives in, lid flips open, gold erupts. */
+  private updateWin(dt: number) {
+    if (!this.chest) return;
+    const prev = this.winT;
+    this.winT += dt;
+    const t = this.winT;
+    const cz = this.chest.position.z;
+    const cy = this.chest.position.y;
+
+    // 0.00–0.55s: ball arcs into the chest mouth and shrinks away
+    const dive = Math.min(1, t / 0.55);
+    const e = 1 - Math.pow(1 - dive, 3);
+    const startX = RIDE_R * Math.cos(this.phi);
+    const startY = RIDE_R * Math.sin(this.phi);
+    this.ball.position.set(
+      startX * (1 - e),
+      startY * (1 - e) + (cy + 0.9) * e + Math.sin(dive * Math.PI) * 0.7,
+      this.ballZ + (cz + 0.2 - this.ballZ) * e,
+    );
+    const s = Math.max(0.001, 1 - Math.max(0, (t - 0.35) / 0.25));
+    this.ball.scale.setScalar(s);
+    this.ball.visible = t < 0.6;
+    this.ballLight.position.copy(this.ball.position);
+    this.ballLight.intensity = 14 + Math.max(0, 30 * (1 - Math.abs(t - 0.6) * 3));
+
+    // 0.55s: lid slams open + gold erupts
+    if (prev < 0.55 && t >= 0.55) {
+      this.spawnGoldBurst(new THREE.Vector3(this.chest.position.x, cy + 1.0, cz));
+      if (!this.cfg.reducedMotion) this.shakeT = 0.35;
+    }
+    if (this.chestLid) {
+      const open = Math.min(1, Math.max(0, (t - 0.55) / 0.5));
+      // overshoot easing for a satisfying flip
+      const o = open === 0 ? 0 : 1 - Math.pow(2, -9 * open) * Math.cos(open * 9);
+      this.chestLid.rotation.x = -o * 2.0;
+    }
+    if (this.chestLight) this.chestLight.intensity = 26 + Math.max(0, 90 * (1 - Math.abs(t - 0.65) * 2.5));
+    if (this.chestBeam) {
+      const m = this.chestBeam.material as THREE.MeshBasicMaterial;
+      m.opacity = Math.min(0.5, 0.14 + Math.max(0, (t - 0.55)) * 0.6);
+    }
+
+    // hand the result back once the show has landed
+    if (!this.winFired && t >= 1.35) {
+      this.winFired = true;
+      this.cb.onWin(this.elapsed, this.coins, this.totalBlades);
+    }
+  }
+
   /* ---------------- rendering ---------------- */
 
   private render(dt: number) {
+    const winning = this.won && this.chest !== null;
+
     // ball placement around the tunnel + rolling
     const x = RIDE_R * Math.cos(this.phi);
     const y = RIDE_R * Math.sin(this.phi);
-    this.ball.position.set(x, y, this.ballZ);
-    this.ball.rotation.x -= (this.speed / BALL_RADIUS) * dt;
-    this.ballLight.position.set(x * 0.6, y * 0.6, this.ballZ + 1);
+    if (winning) {
+      this.updateWin(dt);
+    } else {
+      this.ball.position.set(x, y, this.ballZ);
+      this.ball.rotation.x -= (this.speed / BALL_RADIUS) * dt;
+      this.ballLight.position.set(x * 0.6, y * 0.6, this.ballZ + 1);
 
-    // invulnerability blink
-    if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
-    else if (!this.dead) this.ball.visible = true;
+      // invulnerability blink
+      if (this.invulnT > 0) this.ball.visible = Math.floor(this.invulnT * 10) % 2 === 0;
+      else if (!this.dead) this.ball.visible = true;
+    }
+
 
     // trail — emit multiple interpolated points between frames for smoothness
     if (this.running && !this.dead && this.cfg.trail.id !== "none") {
