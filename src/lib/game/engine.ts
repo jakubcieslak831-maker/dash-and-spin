@@ -444,24 +444,160 @@ export class BladeRunEngine {
     this.nextEndlessIdx = initial;
   }
 
+  /**
+   * A proper treasure chest: dark lacquered oak body, rounded gold-banded lid,
+   * corner studs, a lock plate, a glowing halo ring behind it and a soft light
+   * shaft. Floats in the middle of the tunnel so the run finishes head-on.
+   */
   private buildChest() {
     const g = new THREE.Group();
-    const wood = new THREE.MeshStandardMaterial({ color: "#8b5a2b", roughness: 0.7 });
-    const gold = new THREE.MeshStandardMaterial({ color: "#ffd700", emissive: "#886600", emissiveIntensity: 0.6, metalness: 1, roughness: 0.2 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.6, 1, 1), wood);
-    const lid = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 1), wood);
-    lid.position.y = 0.7;
-    lid.rotation.x = -0.5;
-    const glow = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 8), gold);
-    glow.position.y = 0.7;
-    const band = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.05, 0.2), gold);
-    g.add(body, lid, glow, band);
-    g.position.set(0, -(TUNNEL_RADIUS - 0.7), this.finishZ + 3);
-    const light = new THREE.PointLight(0xffd700, 20, 18);
-    light.position.copy(g.position).add(new THREE.Vector3(0, 1, 2));
-    this.scene.add(g, light);
+
+    const wood = new THREE.MeshStandardMaterial({ color: "#5b3418", roughness: 0.55, metalness: 0.15 });
+    const woodDark = new THREE.MeshStandardMaterial({ color: "#3d2210", roughness: 0.65, metalness: 0.1 });
+    const gold = new THREE.MeshStandardMaterial({
+      color: "#ffcf47",
+      emissive: "#8a6100",
+      emissiveIntensity: 0.55,
+      metalness: 1,
+      roughness: 0.22,
+    });
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: "#ffd97a",
+      transparent: true,
+      opacity: 0.55,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const W = 1.7,
+      H = 0.95,
+      D = 1.15;
+
+    // --- base ---
+    const body = new THREE.Mesh(new THREE.BoxGeometry(W, H, D), wood);
+    body.position.y = H / 2;
+    g.add(body);
+
+    // vertical plank grooves
+    for (let i = -1; i <= 1; i++) {
+      const plank = new THREE.Mesh(new THREE.BoxGeometry(0.06, H * 0.98, D + 0.02), woodDark);
+      plank.position.set(i * 0.45, H / 2, 0);
+      g.add(plank);
+    }
+
+    // gold bands around the base
+    for (const bx of [-W / 2 + 0.16, W / 2 - 0.16]) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.12, H + 0.04, D + 0.04), gold);
+      band.position.set(bx, H / 2, 0);
+      g.add(band);
+    }
+    const rim = new THREE.Mesh(new THREE.BoxGeometry(W + 0.06, 0.1, D + 0.06), gold);
+    rim.position.y = H;
+    g.add(rim);
+
+    // corner studs
+    for (const sx of [-1, 1])
+      for (const sz of [-1, 1]) {
+        const stud = new THREE.Mesh(new THREE.SphereGeometry(0.07, 10, 8), gold);
+        stud.position.set(sx * (W / 2 - 0.06), 0.16, sz * (D / 2 - 0.06));
+        g.add(stud);
+      }
+
+    // --- lid (hinged group, pivots at the back edge) ---
+    const lid = new THREE.Group();
+    lid.position.set(0, H, -D / 2);
+    const shell = new THREE.Mesh(new THREE.CylinderGeometry(D / 2, D / 2, W, 20, 1, false, 0, Math.PI), wood);
+    shell.rotation.z = Math.PI / 2;
+    shell.position.set(0, 0, D / 2);
+    lid.add(shell);
+    for (const bx of [-W / 2 + 0.16, W / 2 - 0.16]) {
+      const arc = new THREE.Mesh(
+        new THREE.TorusGeometry(D / 2 + 0.01, 0.045, 8, 20, Math.PI),
+        gold,
+      );
+      arc.rotation.y = Math.PI / 2;
+      arc.position.set(bx, 0, D / 2);
+      lid.add(arc);
+    }
+    g.add(lid);
+    this.chestLid = lid;
+
+    // lock plate + keyhole
+    const lock = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.34, 0.08), gold);
+    lock.position.set(0, H - 0.14, D / 2 + 0.02);
+    const keyhole = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), woodDark);
+    keyhole.position.set(0, H - 0.14, D / 2 + 0.07);
+    g.add(lock, keyhole);
+
+    // --- treasure glow inside the chest ---
+    const inner = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), glowMat);
+    inner.position.y = H - 0.05;
+    inner.name = "innerGlow";
+    g.add(inner);
+
+    // halo ring behind the chest
+    const halo = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.05, 8, 48), glowMat);
+    halo.position.set(0, H / 2, -0.9);
+    halo.name = "halo";
+    g.add(halo);
+
+    // soft light shaft rising out of the chest
+    const beam = new THREE.Mesh(
+      new THREE.ConeGeometry(1.05, 4.2, 20, 1, true),
+      new THREE.MeshBasicMaterial({
+        color: "#ffdb8a",
+        transparent: true,
+        opacity: 0.14,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }),
+    );
+    beam.position.y = H + 2.0;
+    g.add(beam);
+    this.chestBeam = beam;
+
+    // orbiting sparkles
+    const SP = this.cfg.reducedMotion ? 14 : 44;
+    const spPos = new Float32Array(SP * 3);
+    this.chestSparkPhase = new Float32Array(SP * 3);
+    for (let i = 0; i < SP; i++) {
+      this.chestSparkPhase[i * 3] = Math.random() * Math.PI * 2; // angle
+      this.chestSparkPhase[i * 3 + 1] = 0.9 + Math.random() * 1.2; // radius
+      this.chestSparkPhase[i * 3 + 2] = Math.random() * 2.4; // height offset
+    }
+    const spGeo = new THREE.BufferGeometry();
+    spGeo.setAttribute("position", new THREE.BufferAttribute(spPos, 3));
+    this.chestSparks = new THREE.Points(
+      spGeo,
+      new THREE.PointsMaterial({
+        color: "#ffe6a3",
+        size: 0.13,
+        map: softCircleTexture(),
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        sizeAttenuation: true,
+      }),
+    );
+    g.add(this.chestSparks);
+
+    // pedestal ring the chest floats above
+    const pad = new THREE.Mesh(new THREE.TorusGeometry(1.05, 0.06, 8, 40), gold);
+    pad.rotation.x = Math.PI / 2;
+    pad.position.y = -0.25;
+    g.add(pad);
+
+    g.position.set(0, -0.4, this.finishZ + 3);
+    const light = new THREE.PointLight(0xffce55, 26, 24, 2);
+    light.position.set(0, 1.2, 1.6);
+    g.add(light);
+    this.chestLight = light;
+
+    this.scene.add(g);
     this.chest = g;
   }
+
 
   /* ---------------- public controls ---------------- */
 
