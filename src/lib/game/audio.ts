@@ -15,7 +15,10 @@ type SfxName =
   | "whoosh"
   | "nearmiss"
   | "purchase"
-  | "reward";
+  | "reward"
+  | "powerup"
+  | "shield_break"
+  | "combo";
 
 class AudioManager {
   private ctx: AudioContext | null = null;
