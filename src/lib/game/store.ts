@@ -111,6 +111,18 @@ interface GameStore {
   grantItem: (kind: "skin" | "trail", id: string) => void;
   checkAchievements: () => string[];
   resetDailyIfNeeded: () => void;
+  /** Award player XP (and matching season XP). Returns the new player level. */
+  awardXP: (xp: number) => number;
+  /** Player level derived from playerXP. */
+  playerLevel: () => number;
+  /** Current rank definition. */
+  playerRank: () => { name: string; emoji: string; minLevel: number };
+  /** Claim a season pass tier's rewards (free + premium if purchased). */
+  claimSeasonTier: (tier: number) => { ok: boolean; labels: string[] };
+  /** Purchase the premium season track. */
+  setSeasonPremium: () => void;
+  /** Number of unclaimed tiers the player has reached. */
+  unclaimedSeasonTiers: () => number;
 }
 
 const freshDaily = (): DailyProgress => ({
