@@ -187,7 +187,7 @@ function PlayScreen() {
       const bonus = result.won ? WIN_BONUS[mode] : 0;
       let earned = result.coins + bonus + extraCoins;
       if (s.premium) earned *= 2;
-      s.recordRun({
+      const res = s.recordRun({
         mode,
         won: result.won,
         bladesPassed: result.blades,
@@ -196,6 +196,7 @@ function PlayScreen() {
         dashes: engineRef.current?.dashCount ?? 0,
         level: mode === "level" ? level : undefined,
       });
+      setXpInfo({ gained: res.xpAwarded, leveledUp: res.leveledUp, newLevel: s.playerLevel() });
     },
     [result, mode, level, store],
   );
