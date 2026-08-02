@@ -26,26 +26,6 @@ export interface LevelConfig {
   difficulty: number;
   /** seed so the layout is stable for this level */
   seed: number;
-}
-
-/** Clamp helper. */
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
-
-/**
- * Derive a level's configuration from its number.
- * Tuned so early levels are gentle and late levels are a real gauntlet,
- * yet every level remains completable with careful steering.
- */
-export interface LevelConfig {
-  level: number;
-  /** number of blades in the run */
-  blades: number;
-  /** constant forward speed (units/s) */
-  speed: number;
-  /** difficulty multiplier feeding blade speed / gap size / gap count */
-  difficulty: number;
-  /** seed so the layout is stable for this level */
-  seed: number;
   /** boss finale: every 10th level ends with a Mega Blade */
   isBoss: boolean;
 }
