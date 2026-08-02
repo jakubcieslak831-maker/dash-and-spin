@@ -77,6 +77,15 @@ interface GameStore {
   levelBestTimes: Record<number, number>;
   /** timestamp of last free gem via rewarded ad, to rate-limit farming */
   lastFreeGemAt: number | null;
+  /** total player XP — drives player level & rank (Phase 2) */
+  playerXP: number;
+  /** season pass state (Phase 3) */
+  seasonXP: number;
+  seasonTier: number;
+  seasonPremium: boolean;
+  seasonNumber: number;
+  /** tiers the player has already claimed (avoids double-claiming) */
+  claimedSeasonTiers: number[];
 
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
