@@ -187,16 +187,17 @@ function SeasonPage() {
       {showPremiumModal && (
         <PaymentModal
           title="Season 1 Premium"
-          description="Unlock the premium reward track for all 100 tiers — exclusive skins, trails, themes & bonus gems!"
-          price={9.99}
-          onClose={() => setShowPremiumModal(false)}
-          onSuccess={() => {
+          subtitle="Unlock the premium reward track for all 100 tiers — exclusive skins, trails, themes & bonus gems!"
+          priceLabel="$9.99"
+          icon="⭐"
+          onComplete={() => {
             setSeasonPremium();
             audio.play("levelup");
             if (hapticsEnabled) haptic([50, 30, 50, 30, 80]);
             setShowPremiumModal(false);
             setPopup(["★ Premium Track Unlocked!", "All premium rewards are now claimable!"]);
           }}
+          onCancel={() => setShowPremiumModal(false)}
         />
       )}
     </MenuShell>
