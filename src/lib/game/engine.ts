@@ -228,6 +228,316 @@ class FanBlade implements Obstacle {
   }
 }
 
+/**
+ * LaserBeam — a horizontal energy beam that sweeps across the tunnel
+ * opening at a fixed angle, with a small safe gap at the sides.
+ */
+class LaserBeam implements Obstacle {
+  group = new THREE.Group();
+  passed = false;
+  private angle: number;
+  private sweep: number;
+
+  constructor(
+    public z: number,
+    public index: number,
+    spec: BladeSpec,
+    scene: THREE.Scene,
+  ) {
+    this.angle = spec.startRot;
+    this.sweep = spec.speed;
+    const mat = new THREE.MeshBasicMaterial({
+      color: "#ff3030",
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    // main beam across the tunnel
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, TUNNEL_RADIUS * 2), mat);
+    beam.position.z = 0;
+    this.group.add(beam);
+    // emitter nodes
+    const nodeMat = new THREE.MeshStandardMaterial({ color: "#ff6060", emissive: "#ff2020", emissiveIntensity: 1 });
+    for (const s of [-1, 1]) {
+      const node = new THREE.Mesh(new THREE.SphereGeometry(0.18, 12, 10), nodeMat);
+      node.position.set(0, s * TUNNEL_RADIUS, 0);
+      this.group.add(node);
+    }
+    this.group.position.z = z;
+    this.group.rotation.z = this.angle;
+    scene.add(this.group);
+  }
+
+  update(dt: number) {
+    this.angle += this.sweep * dt;
+    this.group.rotation.z = this.angle;
+  }
+
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
+  collides(ballPhi: number): boolean {
+    // ball is safe if it's more than ~25° from the beam's current angle
+    const TWO_PI = Math.PI * 2;
+    let d = Math.abs((ballPhi - this.angle) % TWO_PI);
+    if (d > Math.PI) d = TWO_PI - d;
+    return d < 0.38 + this.ballAngle();
+  }
+
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let d = Math.abs((ballPhi - this.angle) % TWO_PI);
+    if (d > Math.PI) d = TWO_PI - d;
+    return d;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.group.removeFromParent();
+  }
+}
+
+/**
+ * HammerSwing — a heavy bar that swings across part of the tunnel opening
+ * with a wider safe zone on the opposite side.
+ */
+class HammerSwing implements Obstacle {
+  group = new THREE.Group();
+  passed = false;
+  private angle: number;
+  private pivotSpeed: number;
+
+  constructor(
+    public z: number,
+    public index: number,
+    spec: BladeSpec,
+    scene: THREE.Scene,
+  ) {
+    this.angle = spec.startRot;
+    this.pivotSpeed = spec.speed;
+    const mat = new THREE.MeshStandardMaterial({
+      color: "#666",
+      emissive: "#222",
+      emissiveIntensity: 0.3,
+      metalness: 0.8,
+      roughness: 0.25,
+    });
+    // hammer bar (covers ~40% of the tunnel)
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.28, TUNNEL_RADIUS * 0.9, 0.5), mat);
+    bar.position.y = TUNNEL_RADIUS * 0.45;
+    this.group.add(bar);
+    // pivot hub
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.3, 0.3, 0.3, 16).rotateX(Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: "#444", metalness: 0.9, roughness: 0.15 }),
+    );
+    this.group.add(hub);
+    // warning stripes
+    const stripeMat = new THREE.MeshStandardMaterial({ color: "#ffcc00", emissive: "#886600", emissiveIntensity: 0.5 });
+    for (let s = 0; s < 3; s++) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.08, 0.52), stripeMat);
+      stripe.position.y = 0.2 + s * TUNNEL_RADIUS * 0.25;
+      this.group.add(stripe);
+    }
+    this.group.position.z = z;
+    this.group.rotation.z = this.angle;
+    scene.add(this.group);
+  }
+
+  update(dt: number) {
+    this.angle += this.pivotSpeed * dt;
+    this.group.rotation.z = this.angle;
+  }
+
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
+  collides(ballPhi: number): boolean {
+    // the hammer bar covers angles within ~70° of its current rotation
+    const TWO_PI = Math.PI * 2;
+    let d = Math.abs((ballPhi - this.angle - Math.PI) % TWO_PI); // opposite of pivot
+    if (d > Math.PI) d = TWO_PI - d;
+    // bar spans from pivot (angle) to angle+PI, covering half the circle from pivot down
+    let rel = (ballPhi - this.angle) % TWO_PI;
+    if (rel < 0) rel += TWO_PI;
+    // safe zone: rel > 2.0 rad (opposite side, ~115°+)
+    return rel < 2.0 - this.ballAngle();
+  }
+
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let rel = (ballPhi - this.angle) % TWO_PI;
+    if (rel < 0) rel += TWO_PI;
+    // gap is on the opposite side (rel near PI)
+    const centre = Math.PI;
+    let d = Math.abs(rel - centre);
+    if (d > Math.PI) d = TWO_PI - d;
+    return d;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.group.removeFromParent();
+  }
+}
+
+/**
+ * MegaBlade — a boss obstacle with 4 blades and 2 gaps, faster spin,
+ * larger visual footprint with spikes. Used at every 10th level.
+ */
+class MegaBlade implements Obstacle {
+  group = new THREE.Group();
+  passed = false;
+  private rot: number;
+  private spec: BladeSpec;
+
+  constructor(
+    public z: number,
+    public index: number,
+    spec: BladeSpec,
+    scene: THREE.Scene,
+  ) {
+    this.spec = spec;
+    this.rot = spec.startRot;
+    const mat = new THREE.MeshStandardMaterial({
+      color: "#ff00aa",
+      emissive: "#ff00aa",
+      emissiveIntensity: 0.6,
+      metalness: 0.8,
+      roughness: 0.2,
+      side: THREE.DoubleSide,
+    });
+    const spikes = new THREE.MeshStandardMaterial({ color: "#ffaa00", emissive: "#ff6600", emissiveIntensity: 0.5, metalness: 0.9, roughness: 0.2 });
+    // 4 solid arc segments with 2 generous gaps
+    const gaps = [...spec.gaps].sort((a, b) => a.start - b.start);
+    for (let i = 0; i < gaps.length; i++) {
+      const gapEnd = gaps[i].start + gaps[i].size;
+      const nextStart = gaps[(i + 1) % gaps.length].start + (i + 1 >= gaps.length ? Math.PI * 2 : 0);
+      const arcLen = nextStart - gapEnd;
+      if (arcLen <= 0.02) continue;
+      const geo = new THREE.RingGeometry(0.6, TUNNEL_RADIUS - 0.02, 32, 1, gapEnd, arcLen);
+      const mesh = new THREE.Mesh(geo, mat);
+      this.group.add(mesh);
+      // decorative spikes on each blade arm
+      for (let s = 0. s < 2; s++) {
+        const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 8), spikes);
+        const sa = gapEnd + (s + 1) * (arcLen / 3);
+        spike.position.set((TUNNEL_RADIUS - 0.3) * Math.cos(sa), (TUNNEL_RADIUS - 0.3) * Math.sin(sa), 0.1);
+        spike.rotation.z = sa - Math.PI / 2;
+        this.group.add(spike);
+      }
+    }
+    // large hub
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.6, 0.6, 0.4, 20).rotateX(Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: "#660044", emissive: "#440022", emissiveIntensity: 0.5, metalness: 0.9, roughness: 0.2 }),
+    );
+    this.group.add(hub);
+    this.group.position.z = z;
+    this.group.rotation.z = this.rot;
+    scene.add(this.group);
+  }
+
+  update(dt: number) {
+    this.rot += this.spec.speed * dt;
+    this.group.rotation.z = this.rot;
+  }
+
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
+  collides(ballPhi: number): boolean {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.rot) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    const margin = this.ballAngle();
+    for (const g of this.spec.gaps) {
+      let gs = g.start % TWO_PI;
+      if (gs < 0) gs += TWO_PI;
+      let rel = (local - gs) % TWO_PI;
+      if (rel < 0) rel += TWO_PI;
+      if (rel > margin && rel < g.size - margin) return false;
+    }
+    return true;
+  }
+
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.rot) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    let best = Math.PI;
+    for (const g of this.spec.gaps) {
+      let gs = g.start % TWO_PI;
+      if (gs < 0) gs += TWO_PI;
+      const centre = (gs + g.size / 2) % TWO_PI;
+      let d = Math.abs(local - centre);
+      if (d > Math.PI) d = TWO_PI - d;
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.group.removeFromParent();
+  }
+}
+
+/** Builds a floating power-up pickup mesh with a glowing aura. */
+function makePickup(type: PickupType): { mesh: THREE.Mesh; glow: THREE.Mesh } {
+  const colors: Record<PickupType, string> = {
+    shield: "#00aaff",
+    magnet: "#ff6600",
+    slowmo: "#9966ff",
+    double: "#ffdd00",
+    rush: "#ff0044",
+  };
+  const symbols: Record<PickupType, string> = {
+    shield: "🛡",
+    magnet: "🧲",
+    slowmo: "⏱",
+    double: "✕2",
+    rush: "⚡",
+  };
+  const c = colors[type];
+  const mesh = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.28, 0),
+    new THREE.MeshStandardMaterial({
+      color: c,
+      emissive: c,
+      emissiveIntensity: 0.7,
+      metalness: 0.5,
+      roughness: 0.2,
+      transparent: true,
+      opacity: 0.9,
+    }),
+  );
+  const glow = new THREE.Mesh(
+    new THREE.SphereGeometry(0.5, 16, 12),
+    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false }),
+  );
+  return { mesh, glow };
+}
+
 export class BladeRunEngine {
   private renderer: THREE.WebGLRenderer;
   private scene = new THREE.Scene();
