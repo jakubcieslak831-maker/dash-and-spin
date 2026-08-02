@@ -436,9 +436,77 @@ export const useGameStore = create<GameStore>()(
       resetDailyIfNeeded: () => {
         if (get().daily.date !== todayKey()) set({ daily: freshDaily() });
       },
+
+      awardXP: (xp) => {
+        const s = get();
+        const prevLevel = levelFromXp(s.playerXP);
+        const newXP = s.playerXP + xp;
+        const newLevel = levelFromXp(newXP);
+        set({
+          playerXP: newXP,
+          seasonXP: s.seasonXP + xp,
+          seasonTier: Math.max(s.seasonTier, tierFromSeasonXp(s.seasonXP + xp)),
+        });
+        return newLevel > prevLevel ? newLevel : prevLevel;
+      },
+
+      playerLevel: () => levelFromXp(get().playerXP),
+
+      playerRank: () => {
+        const lvl = levelFromXp(get().playerXP);
+        const r = rankForLevel(lvl);
+        return { name: r.name, emoji: r.emoji, minLevel: r.minLevel };
+      },
+
+      claimSeasonTier: (tier) => {
+        const s = get();
+        if (tier < 1 || tier > s.seasonTier) return { ok: false, labels: [] };
+        if (s.claimedSeasonTiers.includes(tier)) return { ok: false, labels: [] };
+        const reward = seasonTierReward(tier);
+        const labels: string[] = [];
+        const grants: (() => void)[] = [];
+        if (reward.free) {
+          labels.push(reward.free.label);
+          if (reward.free.type === "coins") grants.push(() => get().addCoins(reward.free!.amount!));
+          else if (reward.free.type === "gems") grants.push(() => get().addGems(reward.free!.amount!));
+          else if (reward.free.type === "skin") grants.push(() => get().grantItem("skin", reward.free!.itemId!));
+          else if (reward.free.type === "trail") grants.push(() => get().grantItem("trail", reward.free!.itemId!));
+        }
+        if (reward.premium && s.seasonPremium) {
+          labels.push(reward.premium.label + " ★");
+          if (reward.premium.type === "coins") grants.push(() => get().addCoins(reward.premium!.amount!));
+          else if (reward.premium.type === "gems") grants.push(() => get().addGems(reward.premium!.amount!));
+          else if (reward.premium.type === "skin") grants.push(() => get().grantItem("skin", reward.premium!.itemId!));
+          else if (reward.premium.type === "trail") grants.push(() => get().grantItem("trail", reward.premium!.itemId!));
+        }
+        set((st) => ({ claimedSeasonTiers: [...st.claimedSeasonTiers, tier] }));
+        grants.forEach((g) => g());
+        get().checkAchievements();
+        return { ok: true, labels };
+      },
+
+      setSeasonPremium: () => set({ seasonPremium: true }),
+
+      unclaimedSeasonTiers: () => {
+        const s = get();
+        let count = 0;
+        for (let t = 1; t <= s.seasonTier; t++) {
+          if (!s.claimedSeasonTiers.includes(t)) count++;
+        }
+        return count;
+      },
     }),
     {
-      name: "bladerun-save-v1",
+      name: "bladerun-save-v2",
+      version: 2,
+      migrate: () => ({
+        playerXP: 0,
+        seasonXP: 0,
+        seasonTier: 0,
+        seasonPremium: false,
+        seasonNumber: SEASON_NUMBER,
+        claimedSeasonTiers: [],
+      }),
       partialize: (s) => {
         const { sessionDeaths: _omit, ...rest } = s;
         return rest as GameStore;
