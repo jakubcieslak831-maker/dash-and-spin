@@ -330,6 +330,9 @@ export const useGameStore = create<GameStore>()(
             records,
             unlockedLevel,
             levelBestTimes,
+            playerXP: newXP,
+            seasonXP: s.seasonXP + xp,
+            seasonTier: Math.max(s.seasonTier, tierFromSeasonXp(s.seasonXP + xp)),
             daily: {
               ...s.daily,
               runs: s.daily.runs + 1,
