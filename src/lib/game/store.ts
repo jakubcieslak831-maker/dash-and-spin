@@ -94,7 +94,7 @@ interface GameStore {
   buyItem: (kind: "skin" | "trail" | "explosion" | "theme", id: string, price: number) => boolean;
   buyItemGems: (kind: "skin" | "trail" | "explosion" | "theme", id: string, gemPrice: number) => boolean;
   equip: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => void;
-  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => { newlyAchievements: string[]; gemsAwarded: number };
+  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => { newlyAchievements: string[]; gemsAwarded: number; xpAwarded: number; leveledUp: boolean };
   recordAdWatch: () => void;
   checkLogin: () => void;
   claimDailyReward: () => { ok: boolean; label: string };
