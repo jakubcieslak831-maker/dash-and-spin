@@ -63,12 +63,14 @@ function PlayScreen() {
     let blades: number | undefined;
     let speed: number | undefined;
     let difficulty: number | undefined;
+    let isBoss = false;
     if (mode === "level") {
       const lc = getLevelConfig(level);
       seed = lc.seed;
       blades = lc.blades;
       speed = lc.speed;
       difficulty = lc.difficulty;
+      isBoss = !!lc.isBoss;
     } else if (mode === "daily") {
       seed = dailySeed();
       blades = 18;
@@ -89,6 +91,7 @@ function PlayScreen() {
           blades,
           speed,
           difficulty,
+          isBoss,
           reducedMotion: s.reducedMotion,
           skin: skinById(s.equippedSkin),
           trail: trailById(s.equippedTrail),
@@ -106,6 +109,18 @@ function PlayScreen() {
           onNearMiss: () => {
             audio.play("nearmiss");
             if (store.getState().hapticsEnabled) haptic(12);
+          },
+          onCombo: (combo) => {
+            if (combo > 0 && combo % 5 === 0) {
+              audio.play("combo");
+              if (store.getState().hapticsEnabled) haptic(15);
+            }
+          },
+          onPowerup: (active) => setPowerups(active),
+          onBossIntro: (name) => {
+            setBossIntro(name);
+            audio.play("levelup");
+            setTimeout(() => setBossIntro(null), 2500);
           },
           onDeath: (bladesPassed, coins) => {
             audio.play("lose");
