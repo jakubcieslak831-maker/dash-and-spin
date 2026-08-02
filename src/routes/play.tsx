@@ -38,9 +38,12 @@ function PlayScreen() {
   const lastX = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [level, setLevel] = useState<number>(() => search.level ?? useGameStore.getState().unlockedLevel);
-  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 0, coins: 0 });
+  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 0, coins: 0, combo: 0 });
   const [result, setResult] = useState<{ blades: number; coins: number; time: number; won: boolean } | null>(null);
   const [ad, setAd] = useState<null | "continue" | "double" | "interstitial">(null);
+  const [powerups, setPowerups] = useState<ActivePowerup[]>([]);
+  const [bossIntro, setBossIntro] = useState<string | null>(null);
+  const [xpInfo, setXpInfo] = useState<{ gained: number; leveledUp: boolean; newLevel: number } | null>(null);
   const usedContinue = useRef(false);
   const recorded = useRef(false);
   const doubled = useRef(false);
