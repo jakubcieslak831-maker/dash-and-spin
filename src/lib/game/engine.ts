@@ -35,6 +35,8 @@ export interface EngineConfig {
   difficulty?: number;
   /** Calmer visuals: skip screen shake and cut particle count. */
   reducedMotion?: boolean;
+  /** Boss level — spawns a MegaBlade at the end. */
+  isBoss?: boolean;
 }
 
 export interface HudState {
