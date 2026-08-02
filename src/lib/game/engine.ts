@@ -1092,7 +1092,7 @@ export class BladeRunEngine {
 
     // obstacles
     for (const o of this.obstacles) {
-      o.update(dt, this.elapsed);
+      o.update(dt * slowFactor, this.elapsed);
       if (!o.passed && this.ballZ - BALL_RADIUS < o.z + 0.2 && this.ballZ + BALL_RADIUS > o.z - 0.35) {
         if (this.invulnT <= 0 && o.collides(this.phi)) {
           this.die();
@@ -1105,8 +1105,11 @@ export class BladeRunEngine {
         // near-miss detection: within ~13° of a gap edge counts
         const d = o.gapDistance(this.phi);
         if (d < 0.22) {
-          this.coins += 1;
+          this.combo += 1;
+          this.comboTimer = 2.5;
+          this.coins += 1 + Math.floor(this.combo / 5);
           this.cb.onNearMiss();
+          this.cb.onCombo(this.combo);
         }
         this.cb.onBladePass(this.bladesPassed);
         if (this.cfg.mode === "endless") {
@@ -1122,13 +1125,17 @@ export class BladeRunEngine {
       }
     }
 
-    // coins — magnet skin widens the pickup radius; lucky skin adds bonus
+    // coins — magnet skin/powerup widens pickup radius; lucky skin adds bonus
     const ballX = RIDE_R * Math.cos(this.phi);
     const ballY = RIDE_R * Math.sin(this.phi);
-    const isMagnet = this.cfg.skin.effect === "magnet";
+    const isMagnetSkin = this.cfg.skin.effect === "magnet";
     const isLucky = this.cfg.skin.effect === "lucky";
+    const hasMagnetPower = this.activePowerups.some((p) => p.type === "magnet");
+    const hasDouble = this.activePowerups.some((p) => p.type === "double");
+    const isMagnet = isMagnetSkin || hasMagnetPower;
     const rZ = isMagnet ? 1.9 : 0.7;
     const rXY = isMagnet ? 2.0 : 0.9;
+    const comboMult = 1 + Math.floor(this.combo / 5) * 0.5;
     for (const c of this.coinMeshes) {
       if (!c.taken) {
         c.mesh.rotation.z += 4 * dt;
@@ -1138,8 +1145,33 @@ export class BladeRunEngine {
           if (dx * dx + dy * dy < rXY * rXY) {
             c.taken = true;
             c.mesh.visible = false;
-            this.coins += isLucky ? 6 : 5;
+            let val = isLucky ? 6 : 5;
+            if (hasDouble) val *= 2;
+            val = Math.round(val * comboMult);
+            this.coins += val;
+            this.combo += 1;
+            this.comboTimer = 2.5;
             this.cb.onCoin();
+            this.cb.onCombo(this.combo);
+          }
+        }
+      }
+    }
+
+    // power-up pickup collision
+    for (const p of this.pickups) {
+      if (!p.taken) {
+        p.mesh.rotation.y += 3 * dt;
+        p.mesh.rotation.x += 1.5 * dt;
+        p.glow.scale.setScalar(1 + Math.sin(this.elapsed * 4) * 0.15);
+        if (Math.abs(this.ballZ - p.z) < 0.8) {
+          const dx = ballX - p.mesh.position.x;
+          const dy = ballY - p.mesh.position.y;
+          if (dx * dx + dy * dy < 1.0) {
+            p.taken = true;
+            p.mesh.visible = false;
+            p.glow.visible = false;
+            this.activatePowerup(p.type);
           }
         }
       }
