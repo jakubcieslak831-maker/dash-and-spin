@@ -1079,6 +1079,7 @@ export class BladeRunEngine {
         blade: this.totalBlades,
         totalBlades: this.totalBlades,
         coins: this.coins,
+        combo: this.combo,
       });
       return;
     }
@@ -1094,6 +1095,7 @@ export class BladeRunEngine {
         blade: this.bladesPassed,
         totalBlades: this.cfg.mode === "endless" ? -1 : this.totalBlades,
         coins: this.coins,
+        combo: this.combo,
       });
     }
   }
