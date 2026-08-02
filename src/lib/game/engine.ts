@@ -1038,9 +1038,46 @@ export class BladeRunEngine {
     this.elapsed += dt;
     if (this.invulnT > 0) this.invulnT -= dt;
 
+    // combo decay — resets if no coin/near-miss within 2.5s
+    if (this.combo > 0) {
+      this.comboTimer -= dt;
+      if (this.comboTimer <= 0) {
+        this.combo = 0;
+        this.cb.onCombo(0);
+      }
+    }
+
+    // power-up timers
+    let powerupsChanged = false;
+    for (const p of this.activePowerups) {
+      p.remaining -= dt;
+      if (p.remaining <= 0) powerupsChanged = true;
+    }
+    if (powerupsChanged) {
+      this.activePowerups = this.activePowerups.filter((p) => p.remaining > 0);
+      this.cb.onPowerup([...this.activePowerups]);
+    }
+
+    // slowmo power-up / skin effect: slow obstacle rotation
+    const slowFactor =
+      (this.activePowerups.some((p) => p.type === "slowmo") ? 0.5 : 1) * (this.cfg.skin.effect === "slowmo" ? 0.85 : 1);
+
+    // rush power-up: temporary speed boost + invulnerability
+    const hasRush = this.activePowerups.some((p) => p.type === "rush");
+    if (hasRush) this.invulnT = Math.max(this.invulnT, 0.2);
+    const hasShieldPower = this.activePowerups.some((p) => p.type === "shield");
+    if (hasShieldPower) this.invulnT = Math.max(this.invulnT, 0.2);
+
+    // boss intro
+    if (!this.bossFired && this.cfg.isBoss && this.bladesPassed >= this.totalBlades - 3) {
+      this.bossFired = true;
+      this.cb.onBossIntro(`World ${Math.ceil((this.cfg.level ?? 1) / 10)}`);
+    }
+
     // endless gets gradually faster; levels use a fixed per-level speed
     const endlessBoost = this.cfg.mode === "endless" ? Math.min(5, this.bladesPassed * 0.11) : 0;
-    this.speed = this.baseSpeed + endlessBoost;
+    const rushBoost = hasRush ? 3 : 0;
+    this.speed = this.baseSpeed + endlessBoost + rushBoost;
     this.ballZ -= this.speed * dt;
 
     // smoother steering follow — softer lerp than snap-to-target
