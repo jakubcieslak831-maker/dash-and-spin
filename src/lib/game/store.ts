@@ -300,6 +300,16 @@ export const useGameStore = create<GameStore>()(
           stats.lifetimeCoins += coinsEarned;
           stats.lifetimeGems += gemsAwarded;
 
+          // XP: base per run + bonuses for win, blades passed, boss levels
+          let xp = 10 + bladesPassed * 2;
+          if (won) xp += mode === "daily" ? 60 : mode === "level" ? 40 : 20;
+          if (won && level && level % 10 === 0) xp += 50; // boss bonus
+          xp = Math.round(xp * (s.premium ? 2 : 1));
+          const prevLevel = levelFromXp(s.playerXP);
+          const newXP = s.playerXP + xp;
+          const newLevel = levelFromXp(newXP);
+          const leveledUp = newLevel > prevLevel;
+
           const records = [...s.records, { mode, score: mode === "endless" ? bladesPassed : time, date: todayKey() }]
             .slice(-200);
 
