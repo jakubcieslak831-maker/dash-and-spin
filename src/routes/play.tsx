@@ -463,6 +463,11 @@ function PlayScreen() {
                 💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
               </div>
             )}
+            {xpInfo && (
+              <div className={`rounded-xl border py-2 text-sm font-bold ${xpInfo.leveledUp ? "border-primary/40 bg-primary/10 text-primary" : "border-muted/40 bg-muted/10 text-muted-foreground"}`}>
+                ⭐ +{xpInfo.gained} XP{xpInfo.leveledUp ? ` — Level Up! → Lv.${xpInfo.newLevel}` : ""}
+              </div>
+            )}
             {!doubled.current && !recorded.current && (
               <GameButton variant="gold" onClick={() => setAd("double")}>
                 📺 Double coins
