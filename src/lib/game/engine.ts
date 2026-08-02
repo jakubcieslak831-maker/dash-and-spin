@@ -432,7 +432,7 @@ class MegaBlade implements Obstacle {
       const mesh = new THREE.Mesh(geo, mat);
       this.group.add(mesh);
       // decorative spikes on each blade arm
-      for (let s = 0. s < 2; s++) {
+      for (let s = 0; s < 2; s++) {
         const spike = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.35, 8), spikes);
         const sa = gapEnd + (s + 1) * (arcLen / 3);
         spike.position.set((TUNNEL_RADIUS - 0.3) * Math.cos(sa), (TUNNEL_RADIUS - 0.3) * Math.sin(sa), 0.1);
