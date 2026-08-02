@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef } from "./progression";
+import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef, levelFromXp, xpForLevel, rankForLevel, tierFromSeasonXp, seasonTierReward, SEASON_NUMBER, XP_PER_TIER } from "./progression";
 import { mulberry32, dailySeed, todayKey } from "./rng";
 
 export interface GameStats {
