@@ -344,7 +344,7 @@ export const useGameStore = create<GameStore>()(
             },
           };
         });
-        return { newlyAchievements: get().checkAchievements(), gemsAwarded };
+        return { newlyAchievements: get().checkAchievements(), gemsAwarded, xpAwarded: xp, leveledUp };
       },
 
       recordAdWatch: () => {
