@@ -173,6 +173,12 @@ export const useGameStore = create<GameStore>()(
       unlockedLevel: 1,
       levelBestTimes: {},
       lastFreeGemAt: null,
+      playerXP: 0,
+      seasonXP: 0,
+      seasonTier: 0,
+      seasonPremium: false,
+      seasonNumber: SEASON_NUMBER,
+      claimedSeasonTiers: [],
 
       addCoins: (n) =>
         set((s) => ({
