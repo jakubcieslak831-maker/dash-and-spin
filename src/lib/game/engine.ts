@@ -1210,6 +1210,21 @@ export class BladeRunEngine {
     }
   }
 
+  private activatePowerup(type: PickupType) {
+    const durations: Record<PickupType, number> = {
+      shield: 4,
+      magnet: 8,
+      slowmo: 5,
+      double: 10,
+      rush: 4,
+    };
+    // remove any existing of the same type, then add fresh
+    this.activePowerups = this.activePowerups.filter((p) => p.type !== type);
+    this.activePowerups.push({ type, remaining: durations[type], total: durations[type] });
+    if (type === "shield") this.invulnT = Math.max(this.invulnT, durations[type]);
+    this.cb.onPowerup([...this.activePowerups]);
+  }
+
   private die() {
     // Shield skin auto-revives once
     if (this.shieldAvailable) {
@@ -1217,7 +1232,16 @@ export class BladeRunEngine {
       this.invulnT = 2.0;
       return;
     }
+    // Shield power-up blocks one hit
+    const shieldIdx = this.activePowerups.findIndex((p) => p.type === "shield");
+    if (shieldIdx >= 0) {
+      this.activePowerups.splice(shieldIdx, 1);
+      this.invulnT = 2.0;
+      this.cb.onPowerup([...this.activePowerups]);
+      return;
+    }
     this.dead = true;
+    this.combo = 0;
     this.shakeT = this.cfg.reducedMotion ? 0 : 0.5;
     this.ball.visible = false;
     this.spawnExplosion();
