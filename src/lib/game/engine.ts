@@ -285,6 +285,11 @@ export class BladeRunEngine {
   private finishZ: number;
   private nextEndlessIdx = 0;
   private hudAccum = 0;
+  private combo = 0;
+  private comboTimer = 0;
+  private activePowerups: ActivePowerup[] = [];
+  private pickups: { mesh: THREE.Mesh; z: number; phi: number; type: PickupType; taken: boolean; glow: THREE.Mesh }[] = [];
+  private bossFired = false;
 
   /** kept for stats compatibility (counts steer inputs) */
   get dashCount() {
