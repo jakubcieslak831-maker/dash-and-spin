@@ -316,6 +316,50 @@ function PlayScreen() {
         </div>
       )}
 
+      {/* Combo indicator + power-up icons */}
+      {phase === "playing" && (
+        <>
+          {hud.combo >= 3 && (
+            <div className="animate-fade-in pointer-events-none absolute left-1/2 top-[28%] -translate-x-1/2 text-center">
+              <div className="text-glow font-display text-4xl font-black tabular-nums text-primary">
+                {hud.combo}×
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combo</div>
+            </div>
+          )}
+          {powerups.length > 0 && (
+            <div className="pointer-events-none absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
+              {powerups.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5 rounded-xl bg-background/70 px-3 py-1.5 backdrop-blur-sm">
+                  <span className="text-lg">
+                    {p.type === "shield" ? "🛡" : p.type === "magnet" ? "🧲" : p.type === "slowmo" ? "⏱" : p.type === "double" ? "✕2" : "⚡"}
+                  </span>
+                  <div className="h-1 w-8 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-100"
+                      style={{ width: `${(p.remaining / p.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Boss intro banner */}
+      {bossIntro && (
+        <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="mb-2 text-6xl" aria-hidden>⚔️</div>
+            <h2 className="text-glow font-display text-3xl font-black uppercase tracking-widest text-destructive">
+              BOSS BLADE
+            </h2>
+            <p className="mt-1 text-sm uppercase tracking-widest text-muted-foreground">{bossIntro}</p>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {phase === "loading" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background">
