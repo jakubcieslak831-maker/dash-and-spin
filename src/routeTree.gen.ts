@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ShopRouteImport } from './routes/shop'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as SeasonRouteImport } from './routes/season'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PlayRouteImport } from './routes/play'
 import { Route as MissionsRouteImport } from './routes/missions'
 import { Route as LevelsRouteImport } from './routes/levels'
@@ -32,6 +34,16 @@ const ShopRoute = ShopRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SeasonRoute = SeasonRouteImport.update({
+  id: '/season',
+  path: '/season',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PlayRoute = PlayRouteImport.update({
@@ -72,6 +84,8 @@ export interface FileRoutesByFullPath {
   '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
+  '/profile': typeof ProfileRoute
+  '/season': typeof SeasonRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -83,6 +97,8 @@ export interface FileRoutesByTo {
   '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
+  '/profile': typeof ProfileRoute
+  '/season': typeof SeasonRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -95,6 +111,8 @@ export interface FileRoutesById {
   '/levels': typeof LevelsRoute
   '/missions': typeof MissionsRoute
   '/play': typeof PlayRoute
+  '/profile': typeof ProfileRoute
+  '/season': typeof SeasonRoute
   '/settings': typeof SettingsRoute
   '/shop': typeof ShopRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -108,6 +126,8 @@ export interface FileRouteTypes {
     | '/levels'
     | '/missions'
     | '/play'
+    | '/profile'
+    | '/season'
     | '/settings'
     | '/shop'
     | '/sitemap.xml'
@@ -119,6 +139,8 @@ export interface FileRouteTypes {
     | '/levels'
     | '/missions'
     | '/play'
+    | '/profile'
+    | '/season'
     | '/settings'
     | '/shop'
     | '/sitemap.xml'
@@ -130,6 +152,8 @@ export interface FileRouteTypes {
     | '/levels'
     | '/missions'
     | '/play'
+    | '/profile'
+    | '/season'
     | '/settings'
     | '/shop'
     | '/sitemap.xml'
@@ -142,6 +166,8 @@ export interface RootRouteChildren {
   LevelsRoute: typeof LevelsRoute
   MissionsRoute: typeof MissionsRoute
   PlayRoute: typeof PlayRoute
+  ProfileRoute: typeof ProfileRoute
+  SeasonRoute: typeof SeasonRoute
   SettingsRoute: typeof SettingsRoute
   ShopRoute: typeof ShopRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -168,6 +194,20 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/season': {
+      id: '/season'
+      path: '/season'
+      fullPath: '/season'
+      preLoaderRoute: typeof SeasonRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/play': {
@@ -222,6 +262,8 @@ const rootRouteChildren: RootRouteChildren = {
   LevelsRoute: LevelsRoute,
   MissionsRoute: MissionsRoute,
   PlayRoute: PlayRoute,
+  ProfileRoute: ProfileRoute,
+  SeasonRoute: SeasonRoute,
   SettingsRoute: SettingsRoute,
   ShopRoute: ShopRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
