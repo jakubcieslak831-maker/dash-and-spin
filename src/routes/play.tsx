@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BladeRunEngine, type HudState, type GameMode } from "@/lib/game/engine";
+import { BladeRunEngine, type HudState, type ActivePowerup, type GameMode } from "@/lib/game/engine";
 import { useGameStore } from "@/lib/game/store";
 import { skinById, trailById, explosionById, themeById } from "@/lib/game/cosmetics";
 import { audio, haptic } from "@/lib/game/audio";
