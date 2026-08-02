@@ -499,7 +499,8 @@ export const useGameStore = create<GameStore>()(
     {
       name: "bladerun-save-v2",
       version: 2,
-      migrate: () => ({
+      migrate: (persisted: unknown): Partial<GameStore> => ({
+        ...(persisted as Partial<GameStore>),
         playerXP: 0,
         seasonXP: 0,
         seasonTier: 0,
