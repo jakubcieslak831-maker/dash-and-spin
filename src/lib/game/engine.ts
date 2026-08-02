@@ -43,7 +43,17 @@ export interface HudState {
   blade: number;
   totalBlades: number;
   coins: number;
+  combo: number;
 }
+
+/** A timed power-up active during a run. */
+export interface ActivePowerup {
+  type: "shield" | "magnet" | "slowmo" | "double" | "rush";
+  remaining: number;
+  total: number;
+}
+
+export type PickupType = "shield" | "magnet" | "slowmo" | "double" | "rush";
 
 export interface EngineCallbacks {
   onHud: (hud: HudState) => void;
@@ -53,6 +63,9 @@ export interface EngineCallbacks {
   onNearMiss: () => void;
   onDeath: (bladesPassed: number, coins: number) => void;
   onWin: (time: number, coins: number, blades: number) => void;
+  onCombo: (combo: number) => void;
+  onPowerup: (active: ActivePowerup[]) => void;
+  onBossIntro: (worldName: string) => void;
 }
 
 const TUNNEL_RADIUS = 3;
