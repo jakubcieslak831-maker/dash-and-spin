@@ -107,6 +107,8 @@ function MainMenu() {
         <div className="mt-2 grid grid-cols-2 gap-3">
           <NavCard to="/levels" icon="🗺️" label="Levels" />
           <NavCard to="/shop" icon="🛍️" label="Shop" />
+          <NavCard to="/season" icon="🎫" label="Season" />
+          <NavCard to="/profile" icon="👤" label="Profile" />
           <NavCard to="/missions" icon="🎯" label="Missions" />
           <NavCard to="/leaderboards" icon="🏆" label="Ranks" />
           <NavCard to="/achievements" icon="🏅" label="Awards" />
