@@ -84,3 +84,112 @@ export const DAILY_REWARDS: DailyRewardDef[] = [
   { day: 6, type: "coins", amount: 500, label: "500 Coins" },
   { day: 7, type: "skin", itemId: "plasma", label: "Epic Plasma Skin" },
 ];
+
+/* ===================================================================
+ * Player XP & Rank system (Phase 2)
+ * =================================================================== */
+
+export interface RankDef {
+  name: string;
+  minLevel: number;
+  emoji: string;
+}
+
+/** Rank tiers by player level. The last matching entry wins. */
+export const RANKS: RankDef[] = [
+  { name: "Rookie", minLevel: 1, emoji: "🔰" },
+  { name: "Apprentice", minLevel: 5, emoji: "⚡" },
+  { name: "Runner", minLevel: 12, emoji: "🏃" },
+  { name: "Veteran", minLevel: 22, emoji: "🛡️" },
+  { name: "Elite", minLevel: 35, emoji: "💠" },
+  { name: "Master", minLevel: 50, emoji: "👑" },
+  { name: "Legend", minLevel: 75, emoji: "🏆" },
+];
+
+/** Total XP required to *reach* a given player level (level 1 = 0 XP). */
+export function xpForLevel(level: number): number {
+  const l = Math.max(1, Math.floor(level));
+  return (l - 1) * (l - 1) * 60;
+}
+
+/** Derive the player level from total accumulated XP. */
+export function levelFromXp(xp: number): number {
+  if (xp <= 0) return 1;
+  // invert xpForLevel: xp = (l-1)^2 * 60  →  l = 1 + sqrt(xp/60)
+  return 1 + Math.floor(Math.sqrt(xp / 60));
+}
+
+/** XP still needed to advance from current XP to the next level. */
+export function xpToNext(xp: number): { into: number; need: number; level: number } {
+  const level = levelFromXp(xp);
+  const floor = xpForLevel(level);
+  const next = xpForLevel(level + 1);
+  return { into: xp - floor, need: next - floor, level };
+}
+
+export function rankForLevel(level: number): RankDef {
+  let r = RANKS[0];
+  for (const rank of RANKS) if (level >= rank.minLevel) r = rank;
+  return r;
+}
+
+/* ===================================================================
+ * Season / Battle Pass (Phase 3)
+ * =================================================================== */
+
+export const SEASON_NUMBER = 1;
+export const SEASON_TIERS = 100;
+/** Season XP needed to advance one tier. */
+export const XP_PER_TIER = 120;
+
+export function tierFromSeasonXp(seasonXp: number): number {
+  return Math.min(SEASON_TIERS, Math.floor(seasonXp / XP_PER_TIER));
+}
+
+export interface SeasonRewardEntry {
+  type: "coins" | "gems" | "skin" | "trail" | "theme";
+  amount?: number;
+  itemId?: string;
+  label: string;
+  premium?: boolean;
+}
+
+export interface SeasonTierReward {
+  tier: number;
+  free?: SeasonRewardEntry;
+  premium?: SeasonRewardEntry;
+}
+
+/** Premium-track exclusive cosmetics unlocked at milestone tiers. */
+const SEASON_PREMIUM_ITEMS: Record<number, SeasonRewardEntry> = {
+  10: { type: "trail", itemId: "comet", label: "Comet Trail", premium: true },
+  25: { type: "skin", itemId: "aurelian", label: "Aurelian Skin", premium: true },
+  40: { type: "theme", itemId: "sakura", label: "Sakura Theme", premium: true },
+  55: { type: "trail", itemId: "stardust", label: "Stardust Trail", premium: true },
+  70: { type: "skin", itemId: "midnight", label: "Midnight Bloom", premium: true },
+  85: { type: "theme", itemId: "vaporwave", label: "Vaporwave Theme", premium: true },
+  100: { type: "skin", itemId: "cyberdream", label: "Cyberdream Skin", premium: true },
+};
+
+/**
+ * Deterministically derive the reward for a given tier (1-100).
+ * Free track: coins/gems on a repeating pattern.
+ * Premium track: gems every tier + milestone cosmetics.
+ */
+export function seasonTierReward(tier: number): SeasonTierReward {
+  const t = Math.max(1, Math.min(SEASON_TIERS, Math.floor(tier)));
+  const result: SeasonTierReward = { tier: t };
+
+  // Free track
+  if (t % 10 === 0) result.free = { type: "gems", amount: 5 + Math.floor(t / 10) * 2, label: `${5 + Math.floor(t / 10) * 2} Gems` };
+  else if (t % 5 === 0) result.free = { type: "coins", amount: 200 + t * 3, label: `${200 + t * 3} Coins` };
+  else result.free = { type: "coins", amount: 80 + t * 2, label: `${80 + t * 2} Coins` };
+
+  // Premium track
+  if (SEASON_PREMIUM_ITEMS[t]) result.premium = SEASON_PREMIUM_ITEMS[t];
+  else if (t % 10 === 0) result.premium = { type: "gems", amount: 20 + Math.floor(t / 10) * 5, label: `${20 + Math.floor(t / 10) * 5} Gems`, premium: true };
+  else if (t % 5 === 0) result.premium = { type: "gems", amount: 12, label: "12 Gems", premium: true };
+  else result.premium = { type: "gems", amount: 5 + Math.floor(t / 20), label: `${5 + Math.floor(t / 20)} Gems`, premium: true };
+
+  return result;
+}

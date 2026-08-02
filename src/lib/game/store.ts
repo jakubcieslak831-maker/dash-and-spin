@@ -4,7 +4,7 @@
  */
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef } from "./progression";
+import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef, levelFromXp, xpForLevel, rankForLevel, tierFromSeasonXp, seasonTierReward, SEASON_NUMBER, XP_PER_TIER } from "./progression";
 import { mulberry32, dailySeed, todayKey } from "./rng";
 
 export interface GameStats {
@@ -77,6 +77,15 @@ interface GameStore {
   levelBestTimes: Record<number, number>;
   /** timestamp of last free gem via rewarded ad, to rate-limit farming */
   lastFreeGemAt: number | null;
+  /** total player XP — drives player level & rank (Phase 2) */
+  playerXP: number;
+  /** season pass state (Phase 3) */
+  seasonXP: number;
+  seasonTier: number;
+  seasonPremium: boolean;
+  seasonNumber: number;
+  /** tiers the player has already claimed (avoids double-claiming) */
+  claimedSeasonTiers: number[];
 
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
@@ -85,7 +94,7 @@ interface GameStore {
   buyItem: (kind: "skin" | "trail" | "explosion" | "theme", id: string, price: number) => boolean;
   buyItemGems: (kind: "skin" | "trail" | "explosion" | "theme", id: string, gemPrice: number) => boolean;
   equip: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => void;
-  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => { newlyAchievements: string[]; gemsAwarded: number };
+  recordRun: (r: { mode: "level" | "endless" | "daily"; won: boolean; bladesPassed: number; coinsEarned: number; time: number; dashes: number; level?: number }) => { newlyAchievements: string[]; gemsAwarded: number; xpAwarded: number; leveledUp: boolean };
   recordAdWatch: () => void;
   checkLogin: () => void;
   claimDailyReward: () => { ok: boolean; label: string };
@@ -102,6 +111,18 @@ interface GameStore {
   grantItem: (kind: "skin" | "trail", id: string) => void;
   checkAchievements: () => string[];
   resetDailyIfNeeded: () => void;
+  /** Award player XP (and matching season XP). Returns the new player level. */
+  awardXP: (xp: number) => number;
+  /** Player level derived from playerXP. */
+  playerLevel: () => number;
+  /** Current rank definition. */
+  playerRank: () => { name: string; emoji: string; minLevel: number };
+  /** Claim a season pass tier's rewards (free + premium if purchased). */
+  claimSeasonTier: (tier: number) => { ok: boolean; labels: string[] };
+  /** Purchase the premium season track. */
+  setSeasonPremium: () => void;
+  /** Number of unclaimed tiers the player has reached. */
+  unclaimedSeasonTiers: () => number;
 }
 
 const freshDaily = (): DailyProgress => ({
@@ -164,6 +185,12 @@ export const useGameStore = create<GameStore>()(
       unlockedLevel: 1,
       levelBestTimes: {},
       lastFreeGemAt: null,
+      playerXP: 0,
+      seasonXP: 0,
+      seasonTier: 0,
+      seasonPremium: false,
+      seasonNumber: SEASON_NUMBER,
+      claimedSeasonTiers: [],
 
       addCoins: (n) =>
         set((s) => ({
@@ -257,6 +284,15 @@ export const useGameStore = create<GameStore>()(
         let gemsAwarded = 0;
         if (won && mode === "level") gemsAwarded = 1;
         if (won && mode === "daily") gemsAwarded = 3;
+        // XP: base per run + bonuses for win, blades passed, boss levels
+        const s0 = get();
+        let xp = 10 + bladesPassed * 2;
+        if (won) xp += mode === "daily" ? 60 : mode === "level" ? 40 : 20;
+        if (won && level && level % 10 === 0) xp += 50; // boss bonus
+        xp = Math.round(xp * (s0.premium ? 2 : 1));
+        const prevLevel = levelFromXp(s0.playerXP);
+        const newXP = s0.playerXP + xp;
+        const leveledUp = levelFromXp(newXP) > prevLevel;
         set((s) => {
           const stats = { ...s.stats };
           stats.totalRuns += 1;
@@ -293,6 +329,9 @@ export const useGameStore = create<GameStore>()(
             records,
             unlockedLevel,
             levelBestTimes,
+            playerXP: newXP,
+            seasonXP: s.seasonXP + xp,
+            seasonTier: Math.max(s.seasonTier, tierFromSeasonXp(s.seasonXP + xp)),
             daily: {
               ...s.daily,
               runs: s.daily.runs + 1,
@@ -304,7 +343,7 @@ export const useGameStore = create<GameStore>()(
             },
           };
         });
-        return { newlyAchievements: get().checkAchievements(), gemsAwarded };
+        return { newlyAchievements: get().checkAchievements(), gemsAwarded, xpAwarded: xp, leveledUp };
       },
 
       recordAdWatch: () => {
@@ -397,9 +436,78 @@ export const useGameStore = create<GameStore>()(
       resetDailyIfNeeded: () => {
         if (get().daily.date !== todayKey()) set({ daily: freshDaily() });
       },
+
+      awardXP: (xp) => {
+        const s = get();
+        const prevLevel = levelFromXp(s.playerXP);
+        const newXP = s.playerXP + xp;
+        const newLevel = levelFromXp(newXP);
+        set({
+          playerXP: newXP,
+          seasonXP: s.seasonXP + xp,
+          seasonTier: Math.max(s.seasonTier, tierFromSeasonXp(s.seasonXP + xp)),
+        });
+        return newLevel > prevLevel ? newLevel : prevLevel;
+      },
+
+      playerLevel: () => levelFromXp(get().playerXP),
+
+      playerRank: () => {
+        const lvl = levelFromXp(get().playerXP);
+        const r = rankForLevel(lvl);
+        return { name: r.name, emoji: r.emoji, minLevel: r.minLevel };
+      },
+
+      claimSeasonTier: (tier) => {
+        const s = get();
+        if (tier < 1 || tier > s.seasonTier) return { ok: false, labels: [] };
+        if (s.claimedSeasonTiers.includes(tier)) return { ok: false, labels: [] };
+        const reward = seasonTierReward(tier);
+        const labels: string[] = [];
+        const grants: (() => void)[] = [];
+        if (reward.free) {
+          labels.push(reward.free.label);
+          if (reward.free.type === "coins") grants.push(() => get().addCoins(reward.free!.amount!));
+          else if (reward.free.type === "gems") grants.push(() => get().addGems(reward.free!.amount!));
+          else if (reward.free.type === "skin") grants.push(() => get().grantItem("skin", reward.free!.itemId!));
+          else if (reward.free.type === "trail") grants.push(() => get().grantItem("trail", reward.free!.itemId!));
+        }
+        if (reward.premium && s.seasonPremium) {
+          labels.push(reward.premium.label + " ★");
+          if (reward.premium.type === "coins") grants.push(() => get().addCoins(reward.premium!.amount!));
+          else if (reward.premium.type === "gems") grants.push(() => get().addGems(reward.premium!.amount!));
+          else if (reward.premium.type === "skin") grants.push(() => get().grantItem("skin", reward.premium!.itemId!));
+          else if (reward.premium.type === "trail") grants.push(() => get().grantItem("trail", reward.premium!.itemId!));
+        }
+        set((st) => ({ claimedSeasonTiers: [...st.claimedSeasonTiers, tier] }));
+        grants.forEach((g) => g());
+        get().checkAchievements();
+        return { ok: true, labels };
+      },
+
+      setSeasonPremium: () => set({ seasonPremium: true }),
+
+      unclaimedSeasonTiers: () => {
+        const s = get();
+        let count = 0;
+        for (let t = 1; t <= s.seasonTier; t++) {
+          if (!s.claimedSeasonTiers.includes(t)) count++;
+        }
+        return count;
+      },
     }),
     {
-      name: "bladerun-save-v1",
+      name: "bladerun-save-v2",
+      version: 2,
+      migrate: (persisted: unknown): Partial<GameStore> => ({
+        ...(persisted as Partial<GameStore>),
+        playerXP: 0,
+        seasonXP: 0,
+        seasonTier: 0,
+        seasonPremium: false,
+        seasonNumber: SEASON_NUMBER,
+        claimedSeasonTiers: [],
+      }),
       partialize: (s) => {
         const { sessionDeaths: _omit, ...rest } = s;
         return rest as GameStore;

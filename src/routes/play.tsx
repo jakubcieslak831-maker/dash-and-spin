@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BladeRunEngine, type HudState, type GameMode } from "@/lib/game/engine";
+import { BladeRunEngine, type HudState, type ActivePowerup, type GameMode } from "@/lib/game/engine";
 import { useGameStore } from "@/lib/game/store";
 import { skinById, trailById, explosionById, themeById } from "@/lib/game/cosmetics";
 import { audio, haptic } from "@/lib/game/audio";
@@ -38,9 +38,12 @@ function PlayScreen() {
   const lastX = useRef<number | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [level, setLevel] = useState<number>(() => search.level ?? useGameStore.getState().unlockedLevel);
-  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 0, coins: 0 });
+  const [hud, setHud] = useState<HudState>({ timeLeft: 0, elapsed: 0, blade: 0, totalBlades: 0, coins: 0, combo: 0 });
   const [result, setResult] = useState<{ blades: number; coins: number; time: number; won: boolean } | null>(null);
   const [ad, setAd] = useState<null | "continue" | "double" | "interstitial">(null);
+  const [powerups, setPowerups] = useState<ActivePowerup[]>([]);
+  const [bossIntro, setBossIntro] = useState<string | null>(null);
+  const [xpInfo, setXpInfo] = useState<{ gained: number; leveledUp: boolean; newLevel: number } | null>(null);
   const usedContinue = useRef(false);
   const recorded = useRef(false);
   const doubled = useRef(false);
@@ -60,12 +63,14 @@ function PlayScreen() {
     let blades: number | undefined;
     let speed: number | undefined;
     let difficulty: number | undefined;
+    let isBoss = false;
     if (mode === "level") {
       const lc = getLevelConfig(level);
       seed = lc.seed;
       blades = lc.blades;
       speed = lc.speed;
       difficulty = lc.difficulty;
+      isBoss = !!lc.isBoss;
     } else if (mode === "daily") {
       seed = dailySeed();
       blades = 18;
@@ -86,6 +91,7 @@ function PlayScreen() {
           blades,
           speed,
           difficulty,
+          isBoss,
           reducedMotion: s.reducedMotion,
           skin: skinById(s.equippedSkin),
           trail: trailById(s.equippedTrail),
@@ -103,6 +109,18 @@ function PlayScreen() {
           onNearMiss: () => {
             audio.play("nearmiss");
             if (store.getState().hapticsEnabled) haptic(12);
+          },
+          onCombo: (combo) => {
+            if (combo > 0 && combo % 5 === 0) {
+              audio.play("combo");
+              if (store.getState().hapticsEnabled) haptic(15);
+            }
+          },
+          onPowerup: (active) => setPowerups(active),
+          onBossIntro: (name) => {
+            setBossIntro(name);
+            audio.play("levelup");
+            setTimeout(() => setBossIntro(null), 2500);
           },
           onDeath: (bladesPassed, coins) => {
             audio.play("lose");
@@ -169,7 +187,7 @@ function PlayScreen() {
       const bonus = result.won ? WIN_BONUS[mode] : 0;
       let earned = result.coins + bonus + extraCoins;
       if (s.premium) earned *= 2;
-      s.recordRun({
+      const res = s.recordRun({
         mode,
         won: result.won,
         bladesPassed: result.blades,
@@ -178,6 +196,7 @@ function PlayScreen() {
         dashes: engineRef.current?.dashCount ?? 0,
         level: mode === "level" ? level : undefined,
       });
+      setXpInfo({ gained: res.xpAwarded, leveledUp: res.leveledUp, newLevel: s.playerLevel() });
     },
     [result, mode, level, store],
   );
@@ -297,6 +316,50 @@ function PlayScreen() {
         </div>
       )}
 
+      {/* Combo indicator + power-up icons */}
+      {phase === "playing" && (
+        <>
+          {hud.combo >= 3 && (
+            <div className="animate-fade-in pointer-events-none absolute left-1/2 top-[28%] -translate-x-1/2 text-center">
+              <div className="text-glow font-display text-4xl font-black tabular-nums text-primary">
+                {hud.combo}×
+              </div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Combo</div>
+            </div>
+          )}
+          {powerups.length > 0 && (
+            <div className="pointer-events-none absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-2">
+              {powerups.map((p, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5 rounded-xl bg-background/70 px-3 py-1.5 backdrop-blur-sm">
+                  <span className="text-lg">
+                    {p.type === "shield" ? "🛡" : p.type === "magnet" ? "🧲" : p.type === "slowmo" ? "⏱" : p.type === "double" ? "✕2" : "⚡"}
+                  </span>
+                  <div className="h-1 w-8 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-100"
+                      style={{ width: `${(p.remaining / p.total) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Boss intro banner */}
+      {bossIntro && (
+        <div className="animate-fade-in pointer-events-none absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-sm">
+          <div className="text-center">
+            <div className="mb-2 text-6xl" aria-hidden>⚔️</div>
+            <h2 className="text-glow font-display text-3xl font-black uppercase tracking-widest text-destructive">
+              BOSS BLADE
+            </h2>
+            <p className="mt-1 text-sm uppercase tracking-widest text-muted-foreground">{bossIntro}</p>
+          </div>
+        </div>
+      )}
+
       {/* Loading */}
       {phase === "loading" && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-background">
@@ -398,6 +461,11 @@ function PlayScreen() {
             {(mode === "level" || mode === "daily") && (
               <div className="rounded-xl border border-gold/40 bg-gold/10 py-2 text-sm font-bold text-gold">
                 💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
+              </div>
+            )}
+            {xpInfo && (
+              <div className={`rounded-xl border py-2 text-sm font-bold ${xpInfo.leveledUp ? "border-primary/40 bg-primary/10 text-primary" : "border-muted/40 bg-muted/10 text-muted-foreground"}`}>
+                ⭐ +{xpInfo.gained} XP{xpInfo.leveledUp ? ` — Level Up! → Lv.${xpInfo.newLevel}` : ""}
               </div>
             )}
             {!doubled.current && !recorded.current && (

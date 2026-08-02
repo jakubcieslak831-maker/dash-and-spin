@@ -15,7 +15,10 @@ type SfxName =
   | "whoosh"
   | "nearmiss"
   | "purchase"
-  | "reward";
+  | "reward"
+  | "powerup"
+  | "shield_break"
+  | "combo";
 
 class AudioManager {
   private ctx: AudioContext | null = null;
@@ -149,6 +152,21 @@ class AudioManager {
         break;
       case "reward":
         [523, 659, 784, 988, 1319].forEach((f, i) => this.tone(f, 0.2, "triangle", 0.3, bus, i * 0.08));
+        break;
+      case "powerup":
+        // bright rising sweep — feels like grabbing something special
+        [440, 660, 880, 1320].forEach((f, i) => this.tone(f, 0.14, "triangle", 0.3, bus, i * 0.05));
+        this.noise(0.1, 0.08, bus, 5000);
+        break;
+      case "shield_break":
+        // glassy crack — your shield just saved you
+        this.tone(1800, 0.08, "sine", 0.3, bus, 0, 600);
+        this.tone(900, 0.12, "triangle", 0.2, bus, 0.03, 300);
+        this.noise(0.15, 0.12, bus, 3000);
+        break;
+      case "combo":
+        // escalating chime per combo milestone
+        [784, 988, 1318, 1568].forEach((f, i) => this.tone(f, 0.1, "sine", 0.22, bus, i * 0.04));
         break;
     }
   }

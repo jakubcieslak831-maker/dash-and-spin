@@ -26,6 +26,8 @@ export interface LevelConfig {
   difficulty: number;
   /** seed so the layout is stable for this level */
   seed: number;
+  /** boss finale: every 10th level ends with a Mega Blade */
+  isBoss: boolean;
 }
 
 /** Clamp helper. */
@@ -50,6 +52,7 @@ export function getLevelConfig(level: number): LevelConfig {
     speed,
     difficulty,
     seed: (0x9e37 + l * 2654435761) >>> 0,
+    isBoss: l % 10 === 0,
   };
 }
 
