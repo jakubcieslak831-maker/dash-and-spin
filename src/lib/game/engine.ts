@@ -1032,7 +1032,35 @@ export class BladeRunEngine {
     });
   }
 
+  /** Dissolve objects that have moved behind the ball so they never block the view.
+   *  `behind` = object.z - ballZ (positive once the ball is through it). */
+  private fadeBehind(group: THREE.Object3D, behind: number) {
+    const FADE = 1.4;
+    if (behind < -0.05) {
+      if (!group.visible) group.visible = true;
+      return;
+    }
+    const t = Math.min(1, (behind + 0.05) / FADE);
+    const opacity = 1 - t;
+    group.visible = opacity > 0.01;
+    if (!group.visible) return;
+    group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      const m = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (!m) return;
+      const list = Array.isArray(m) ? m : [m];
+      for (const mat of list) {
+        const mm = mat as THREE.Material & { opacity: number; _baseOpacity?: number };
+        if (mm._baseOpacity === undefined) mm._baseOpacity = mm.opacity;
+        mm.transparent = true;
+        mm.depthWrite = false;
+        mm.opacity = mm._baseOpacity * opacity;
+      }
+    });
+  }
+
   /* ---------------- simulation ---------------- */
+
 
   private step(dt: number) {
     this.elapsed += dt;
