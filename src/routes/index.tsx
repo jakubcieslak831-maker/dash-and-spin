@@ -193,7 +193,7 @@ function NavCard({ to, icon, label }: { to: string; icon: string; label: string 
   );
 }
 
-function SubLink({ to, children }: { to: string; children: React.ReactNode }) {
+function SubLink({ to, children }: { to: string; children: ReactNode }) {
   const haptics = useGameStore((s) => s.hapticsEnabled);
   return (
     <Link
