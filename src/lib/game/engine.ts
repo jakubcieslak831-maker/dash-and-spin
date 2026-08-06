@@ -1197,6 +1197,9 @@ export class BladeRunEngine {
         p.mesh.rotation.y += 3 * dt;
         p.mesh.rotation.x += 1.5 * dt;
         p.glow.scale.setScalar(1 + Math.sin(this.elapsed * 4) * 0.15);
+        this.fadeBehind(p.mesh, p.z - this.ballZ);
+        this.fadeBehind(p.glow, p.z - this.ballZ);
+
         if (Math.abs(this.ballZ - p.z) < 0.8) {
           const dx = ballX - p.mesh.position.x;
           const dy = ballY - p.mesh.position.y;
