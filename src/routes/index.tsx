@@ -52,73 +52,88 @@ function MainMenu() {
   };
 
   return (
-    <div className="bg-arena flex min-h-dvh flex-col items-center px-5 pb-8 pt-6">
-      <div className="flex w-full max-w-lg items-center justify-between">
-        {hydrated && store.premium ? (
-          <span className="rounded-full border border-gold/50 bg-gold/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-gold">★ Premium</span>
-        ) : (
-          <span />
-        )}
+    <div className="bg-arena flex min-h-dvh flex-col items-center px-5 pb-10 pt-5">
+      <header className="flex w-full max-w-lg items-center justify-between">
+        <Link
+          to="/settings"
+          onClick={() => {
+            audio.play("click");
+            if (store.hapticsEnabled) haptic();
+          }}
+          aria-label="Settings"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-border/70 bg-card/70 text-base backdrop-blur-md transition-transform active:scale-90"
+        >
+          ⚙️
+        </Link>
         <div className="flex items-center gap-2">
+          {hydrated && store.premium && (
+            <span className="rounded-full border border-gold/40 bg-gold/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest text-gold">★</span>
+          )}
           <GemBadge amount={hydrated ? store.gems : 0} />
           <CoinBadge amount={hydrated ? store.coins : 0} />
         </div>
-      </div>
+      </header>
 
       {/* Logo */}
-      <div className="mt-10 text-center">
-        <div className="animate-float mx-auto mb-4 flex h-24 w-24 items-center justify-center rounded-full border-2 border-primary/50 bg-card text-5xl glow-primary" aria-hidden>
+      <div className="mt-12 text-center">
+        <div className="animate-float mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full border border-primary/40 bg-card/60 text-4xl backdrop-blur-md glow-primary" aria-hidden>
           ⚔️
         </div>
         <h1 className="text-glow font-display text-5xl font-black uppercase italic tracking-tight">
           Blade<span className="text-primary">Run</span>
         </h1>
-        <p className="mt-2 text-sm uppercase tracking-[0.3em] text-muted-foreground">Steer through the blades</p>
+        <p className="mt-2 text-[11px] uppercase tracking-[0.4em] text-muted-foreground">Steer through the blades</p>
       </div>
 
       {/* Daily reward banner */}
       {canClaim && (
         <button
           onClick={claim}
-          className="animate-pulse-glow mt-8 flex w-full max-w-lg items-center justify-between rounded-2xl border border-gold/50 bg-card px-5 py-4 active:scale-95"
+          className="animate-pulse-glow mt-8 flex w-full max-w-lg items-center justify-between rounded-2xl border border-gold/40 bg-card/70 px-5 py-3.5 backdrop-blur-md active:scale-95"
         >
           <div className="text-left">
-            <div className="text-xs uppercase tracking-widest text-muted-foreground">Day {rewardDay} login reward</div>
-            <div className="font-display font-bold text-gold">{DAILY_REWARDS[rewardDay - 1].label}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Day {rewardDay} reward</div>
+            <div className="font-display text-sm font-bold text-gold">{DAILY_REWARDS[rewardDay - 1].label}</div>
           </div>
-          <span className="text-3xl" aria-hidden>🎁</span>
+          <span className="text-2xl" aria-hidden>🎁</span>
         </button>
       )}
 
-      {/* Play buttons */}
-      <nav className="mt-8 flex w-full max-w-lg flex-col gap-3">
+      {/* Play */}
+      <nav className="mt-auto flex w-full max-w-lg flex-col gap-2.5 pt-10">
         <PlayLink
           to="/play"
           search={{ mode: "level", level: hydrated ? store.unlockedLevel : 1 }}
           big
-          label={hydrated ? `Play Level ${store.unlockedLevel}` : "Play"}
-          sub={`Campaign • ${hydrated ? store.unlockedLevel : 1}/100`}
+          label={hydrated ? `Level ${store.unlockedLevel}` : "Play"}
+          sub={`Campaign • ${hydrated ? store.unlockedLevel : 1}/300`}
           icon="▶"
         />
-        <div className="grid grid-cols-2 gap-3">
-          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Speeds up forever" icon="∞" />
-          <PlayLink to="/play" search={{ mode: "daily" }} label="Daily" sub={hydrated && store.daily.dailyChallengeDone ? "Completed ✓" : "New challenge"} icon="📅" />
+        <div className="grid grid-cols-2 gap-2.5">
+          <PlayLink to="/play" search={{ mode: "endless" }} label="Endless" sub="Speeds up" icon="∞" />
+          <PlayLink to="/play" search={{ mode: "daily" }} label="Daily" sub={hydrated && store.daily.dailyChallengeDone ? "Done ✓" : "Challenge"} icon="📅" />
         </div>
-        <div className="mt-2 grid grid-cols-2 gap-3">
+
+        {/* Primary hub — everything else lives one tap deeper */}
+        <div className="mt-3 grid grid-cols-4 gap-2">
           <NavCard to="/levels" icon="🗺️" label="Levels" />
           <NavCard to="/shop" icon="🛍️" label="Shop" />
           <NavCard to="/season" icon="🎫" label="Season" />
-          <NavCard to="/profile" icon="👤" label="Profile" />
-          <NavCard to="/missions" icon="🎯" label="Missions" />
-          <NavCard to="/leaderboards" icon="🏆" label="Ranks" />
-          <NavCard to="/achievements" icon="🏅" label="Awards" />
-          <NavCard to="/settings" icon="⚙️" label="Settings" />
+          <NavCard to="/profile" icon="👤" label="You" />
+        </div>
+
+        <div className="mt-2 flex items-center justify-center gap-4 text-[11px] uppercase tracking-widest text-muted-foreground">
+          <SubLink to="/missions">Missions</SubLink>
+          <span aria-hidden>·</span>
+          <SubLink to="/leaderboards">Ranks</SubLink>
+          <span aria-hidden>·</span>
+          <SubLink to="/achievements">Awards</SubLink>
         </div>
       </nav>
 
       {hydrated && (
-        <p className="mt-6 text-xs text-muted-foreground">
-          Level {store.unlockedLevel}/100 · Endless best: {store.stats.bestEndless} blades
+        <p className="mt-6 text-[11px] text-muted-foreground">
+          Endless best: {store.stats.bestEndless} blades
         </p>
       )}
 
@@ -138,7 +153,7 @@ function MainMenu() {
   );
 }
 
-function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: { mode: "level" | "endless" | "daily"; level?: number }; label: string; sub: string; icon: string; big?: boolean }) {
+function PlayLink({ search, label, sub, icon, big }: { to: string; search: { mode: "level" | "endless" | "daily"; level?: number }; label: string; sub: string; icon: string; big?: boolean }) {
   const haptics = useGameStore((s) => s.hapticsEnabled);
   return (
     <Link
@@ -149,19 +164,19 @@ function PlayLink({ to, search, label, sub, icon, big }: { to: string; search: {
         if (haptics) haptic();
       }}
       className={`flex items-center gap-4 rounded-2xl px-5 transition-transform active:scale-95 ${
-        big ? "glow-primary bg-primary py-5 text-primary-foreground" : "border border-border bg-card py-4"
+        big ? "glow-primary bg-primary py-5 text-primary-foreground" : "border border-border/70 bg-card/70 py-3.5 backdrop-blur-md"
       }`}
     >
-      <span className={`font-display ${big ? "text-3xl" : "text-xl text-primary"}`} aria-hidden>{icon}</span>
+      <span className={`font-display ${big ? "text-2xl" : "text-lg text-primary"}`} aria-hidden>{icon}</span>
       <span className="flex flex-col text-left">
-        <span className="font-display text-lg font-bold uppercase tracking-widest">{label}</span>
-        <span className={`text-xs ${big ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{sub}</span>
+        <span className={`font-display font-bold uppercase tracking-widest ${big ? "text-lg" : "text-sm"}`}>{label}</span>
+        <span className={`text-[11px] ${big ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{sub}</span>
       </span>
     </Link>
   );
 }
 
-function NavCard({ to, icon, label, wide }: { to: string; icon: string; label: string; wide?: boolean }) {
+function NavCard({ to, icon, label }: { to: string; icon: string; label: string }) {
   const haptics = useGameStore((s) => s.hapticsEnabled);
   return (
     <Link
@@ -170,10 +185,27 @@ function NavCard({ to, icon, label, wide }: { to: string; icon: string; label: s
         audio.play("click");
         if (haptics) haptic();
       }}
-      className={`flex items-center justify-center gap-3 rounded-2xl border border-border bg-card py-4 transition-transform active:scale-95 ${wide ? "" : ""}`}
+      className="flex flex-col items-center justify-center gap-1 rounded-2xl border border-border/70 bg-card/70 py-3 backdrop-blur-md transition-transform active:scale-95"
     >
-      <span className="text-xl" aria-hidden>{icon}</span>
-      <span className="font-display text-sm font-bold uppercase tracking-widest">{label}</span>
+      <span className="text-lg" aria-hidden>{icon}</span>
+      <span className="font-display text-[10px] font-bold uppercase tracking-widest">{label}</span>
     </Link>
   );
 }
+
+function SubLink({ to, children }: { to: string; children: React.ReactNode }) {
+  const haptics = useGameStore((s) => s.hapticsEnabled);
+  return (
+    <Link
+      to={to}
+      onClick={() => {
+        audio.play("click");
+        if (haptics) haptic();
+      }}
+      className="transition-colors active:text-primary"
+    >
+      {children}
+    </Link>
+  );
+}
+
