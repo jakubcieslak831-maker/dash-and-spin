@@ -1170,6 +1170,8 @@ export class BladeRunEngine {
     for (const c of this.coinMeshes) {
       if (!c.taken) {
         c.mesh.rotation.z += 4 * dt;
+        this.fadeBehind(c.mesh, c.z - this.ballZ);
+
         if (Math.abs(this.ballZ - c.z) < rZ) {
           const dx = ballX - c.mesh.position.x;
           const dy = ballY - c.mesh.position.y;
