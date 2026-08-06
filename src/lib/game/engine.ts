@@ -1093,6 +1093,9 @@ export class BladeRunEngine {
     // obstacles
     for (const o of this.obstacles) {
       o.update(dt * slowFactor, this.elapsed);
+      // keep the view clear: dissolve an obstacle the moment the ball is through it
+      this.fadeBehind(o.group, o.z - this.ballZ);
+
       if (!o.passed && this.ballZ - BALL_RADIUS < o.z + 0.2 && this.ballZ + BALL_RADIUS > o.z - 0.35) {
         if (this.invulnT <= 0 && o.collides(this.phi)) {
           this.die();
