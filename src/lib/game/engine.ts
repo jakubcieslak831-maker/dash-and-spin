@@ -1032,7 +1032,35 @@ export class BladeRunEngine {
     });
   }
 
+  /** Dissolve objects that have moved behind the ball so they never block the view.
+   *  `behind` = object.z - ballZ (positive once the ball is through it). */
+  private fadeBehind(group: THREE.Object3D, behind: number) {
+    const FADE = 1.4;
+    if (behind < -0.05) {
+      if (!group.visible) group.visible = true;
+      return;
+    }
+    const t = Math.min(1, (behind + 0.05) / FADE);
+    const opacity = 1 - t;
+    group.visible = opacity > 0.01;
+    if (!group.visible) return;
+    group.traverse((o) => {
+      const mesh = o as THREE.Mesh;
+      const m = mesh.material as THREE.Material | THREE.Material[] | undefined;
+      if (!m) return;
+      const list = Array.isArray(m) ? m : [m];
+      for (const mat of list) {
+        const mm = mat as THREE.Material & { opacity: number; _baseOpacity?: number };
+        if (mm._baseOpacity === undefined) mm._baseOpacity = mm.opacity;
+        mm.transparent = true;
+        mm.depthWrite = false;
+        mm.opacity = mm._baseOpacity * opacity;
+      }
+    });
+  }
+
   /* ---------------- simulation ---------------- */
+
 
   private step(dt: number) {
     this.elapsed += dt;
@@ -1093,6 +1121,9 @@ export class BladeRunEngine {
     // obstacles
     for (const o of this.obstacles) {
       o.update(dt * slowFactor, this.elapsed);
+      // keep the view clear: dissolve an obstacle the moment the ball is through it
+      this.fadeBehind(o.group, o.z - this.ballZ);
+
       if (!o.passed && this.ballZ - BALL_RADIUS < o.z + 0.2 && this.ballZ + BALL_RADIUS > o.z - 0.35) {
         if (this.invulnT <= 0 && o.collides(this.phi)) {
           this.die();
@@ -1139,6 +1170,8 @@ export class BladeRunEngine {
     for (const c of this.coinMeshes) {
       if (!c.taken) {
         c.mesh.rotation.z += 4 * dt;
+        this.fadeBehind(c.mesh, c.z - this.ballZ);
+
         if (Math.abs(this.ballZ - c.z) < rZ) {
           const dx = ballX - c.mesh.position.x;
           const dy = ballY - c.mesh.position.y;
@@ -1164,6 +1197,9 @@ export class BladeRunEngine {
         p.mesh.rotation.y += 3 * dt;
         p.mesh.rotation.x += 1.5 * dt;
         p.glow.scale.setScalar(1 + Math.sin(this.elapsed * 4) * 0.15);
+        this.fadeBehind(p.mesh, p.z - this.ballZ);
+        this.fadeBehind(p.glow, p.z - this.ballZ);
+
         if (Math.abs(this.ballZ - p.z) < 0.8) {
           const dx = ballX - p.mesh.position.x;
           const dy = ballY - p.mesh.position.y;
