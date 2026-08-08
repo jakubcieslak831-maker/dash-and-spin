@@ -129,6 +129,15 @@ function ShopPage() {
           onOffer={(o) => setPayOffer(o)}
           onFree={() => setAd("freegem")}
           gems={store.gems}
+          vip={store.vip}
+          vipClaimable={store.vip && store.vipLastClaim !== new Date().toISOString().slice(0, 10)}
+          onVipClaim={() => {
+            const r = store.claimVipDaily();
+            if (r.ok) {
+              audio.play("gem");
+              if (store.hapticsEnabled) haptic([25, 30, 25]);
+            }
+          }}
         />
 
       ) : (
@@ -223,6 +232,21 @@ function ShopPage() {
               store.addCoins(500);
               store.addGems(40);
               store.grantItem("skin", "ember");
+            } else if (payOffer.id === "vip") {
+              store.setVip(true);
+              store.claimVipDaily();
+            } else if (payOffer.id === "goldVault") {
+              store.addCoins(25000);
+            } else if (payOffer.id === "levelSkip") {
+              store.skipLevels(5);
+            } else if (payOffer.id === "ultimate") {
+              store.setVip(true);
+              store.setPremium(true);
+              store.setAdsRemoved(true);
+              store.addGems(1200);
+              store.addCoins(25000);
+              for (const id of ["aurelian", "midnight", "cyberdream", "phoenixegg", "midasorb"]) store.grantItem("skin", id);
+              for (const id of ["comet", "stardust"]) store.grantItem("trail", id);
             }
             audio.play("purchase");
             if (store.hapticsEnabled) haptic([20, 40, 20]);
@@ -240,11 +264,17 @@ function GemsTab({
   onOffer,
   onFree,
   gems,
+  vip,
+  vipClaimable,
+  onVipClaim,
 }: {
   onBundle: (b: (typeof GEM_BUNDLES)[number]) => void;
   onOffer: (o: OfferDef) => void;
   onFree: () => void;
   gems: number;
+  vip: boolean;
+  vipClaimable: boolean;
+  onVipClaim: () => void;
 }) {
 
   return (
@@ -256,6 +286,23 @@ function GemsTab({
           Gems unlock elite &amp; limited-edition cosmetics. Earn a few by winning levels or grab a bundle below.
         </p>
       </div>
+
+      {vip && (
+        <div className="flex items-center justify-between rounded-2xl border border-gold/60 bg-gradient-to-r from-gold/15 to-transparent px-4 py-4">
+          <div>
+            <div className="text-xs uppercase tracking-widest text-gold">⭐ VIP active</div>
+            <div className="text-[11px] text-muted-foreground">No ads · 2× coins · 5 💎 daily</div>
+          </div>
+          <GameButton
+            variant={vipClaimable ? "gold" : "ghost"}
+            className="!px-3 !py-2 text-[11px]"
+            disabled={!vipClaimable}
+            onClick={onVipClaim}
+          >
+            {vipClaimable ? "Claim 5 💎" : "Claimed"}
+          </GameButton>
+        </div>
+      )}
 
       <button
         onClick={onFree}
@@ -299,7 +346,9 @@ function GemsTab({
             <button
               key={o.id}
               onClick={() => onOffer(o)}
-              className="flex items-center justify-between rounded-2xl border border-primary/40 bg-card px-4 py-3 text-left active:scale-95"
+              className={`relative flex items-center justify-between rounded-2xl border bg-card px-4 py-3 text-left active:scale-95 ${
+                o.best ? "border-gold/60 glow-primary" : "border-primary/40"
+              }`}
             >
               <div className="flex items-center gap-3">
                 <span className="text-2xl" aria-hidden>{o.icon}</span>
@@ -308,7 +357,17 @@ function GemsTab({
                   <div className="text-[11px] text-muted-foreground">{o.subtitle}</div>
                 </div>
               </div>
-              <span className="font-display text-sm font-black text-gold">{o.priceLabel}</span>
+              <span className="flex flex-col items-end">
+                {o.wasLabel && (
+                  <span className="text-[10px] text-muted-foreground line-through">{o.wasLabel}</span>
+                )}
+                <span className="font-display text-sm font-black text-gold">{o.priceLabel}</span>
+              </span>
+              {o.best && (
+                <span className="absolute -top-2 left-4 rounded-full border border-gold/60 bg-background px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest text-gold">
+                  ★ Most popular
+                </span>
+              )}
             </button>
           ))}
         </div>
