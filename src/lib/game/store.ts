@@ -6,6 +6,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef, levelFromXp, xpForLevel, rankForLevel, tierFromSeasonXp, seasonTierReward, SEASON_NUMBER, XP_PER_TIER } from "./progression";
 import { mulberry32, dailySeed, todayKey } from "./rng";
+import { MAX_LEVEL } from "./levels";
 
 export interface GameStats {
   totalRuns: number;
@@ -68,6 +69,10 @@ interface GameStore {
   reducedMotion: boolean;
   adsRemoved: boolean;
   premium: boolean;
+  /** VIP subscription: no ads, 2x coins, daily gem drop */
+  vip: boolean;
+  /** date key of the last claimed VIP daily gem drop */
+  vipLastClaim: string | null;
   tutorialSeen: boolean;
   records: RunRecord[];
   sessionDeaths: number;
@@ -107,6 +112,11 @@ interface GameStore {
   setReducedMotion: (on: boolean) => void;
   setAdsRemoved: (v: boolean) => void;
   setPremium: (v: boolean) => void;
+  setVip: (v: boolean) => void;
+  /** Claim the VIP daily gem drop (once per day while subscribed). */
+  claimVipDaily: () => { ok: boolean; gems: number };
+  /** Instantly unlock the next N campaign levels (paid convenience item). */
+  skipLevels: (n: number) => void;
   setTutorialSeen: () => void;
   grantItem: (kind: "skin" | "trail", id: string) => void;
   checkAchievements: () => string[];
@@ -179,6 +189,8 @@ export const useGameStore = create<GameStore>()(
       reducedMotion: false,
       adsRemoved: false,
       premium: false,
+      vip: false,
+      vipLastClaim: null,
       tutorialSeen: false,
       records: [],
       sessionDeaths: 0,
@@ -417,6 +429,18 @@ export const useGameStore = create<GameStore>()(
       setReducedMotion: (on) => set({ reducedMotion: on }),
       setAdsRemoved: (v) => set({ adsRemoved: v }),
       setPremium: (v) => set({ premium: v }),
+      setVip: (v) => set({ vip: v, adsRemoved: v || get().adsRemoved, premium: v || get().premium }),
+      claimVipDaily: () => {
+        const s = get();
+        if (!s.vip) return { ok: false, gems: 0 };
+        const today = todayKey();
+        if (s.vipLastClaim === today) return { ok: false, gems: 0 };
+        set({ vipLastClaim: today });
+        get().addGems(5);
+        return { ok: true, gems: 5 };
+      },
+      skipLevels: (n) =>
+        set((st) => ({ unlockedLevel: Math.min(MAX_LEVEL, st.unlockedLevel + Math.max(0, n)) })),
       setTutorialSeen: () => set({ tutorialSeen: true }),
 
       checkAchievements: () => {
@@ -507,6 +531,8 @@ export const useGameStore = create<GameStore>()(
         seasonPremium: false,
         seasonNumber: SEASON_NUMBER,
         claimedSeasonTiers: [],
+        vip: false,
+        vipLastClaim: null,
       }),
       partialize: (s) => {
         const { sessionDeaths: _omit, ...rest } = s;

@@ -592,6 +592,13 @@ export class BladeRunEngine {
   private won = false;
   private invulnT = 0;
   private shakeT = 0;
+  /** smoothed camera rig state (critically-damped springs) */
+  private camPos = new THREE.Vector3(0, 0, 5.2);
+  private camVel = new THREE.Vector3();
+  private camLook = new THREE.Vector3(0, 0, -8);
+  private camRoll = 0;
+  private camFov = 72;
+  private shakeSeed = Math.random() * 1000;
   private raf = 0;
   private lastT = 0;
   private finishZ: number;
@@ -1035,15 +1042,25 @@ export class BladeRunEngine {
   /** Dissolve objects that have moved behind the ball so they never block the view.
    *  `behind` = object.z - ballZ (positive once the ball is through it). */
   private fadeBehind(group: THREE.Object3D, behind: number) {
-    const FADE = 1.4;
-    if (behind < -0.05) {
+    // start dissolving slightly BEFORE the object reaches the camera plane so it
+    // never smears across the view, and finish quickly.
+    const START = -0.15;
+    const FADE = 1.15;
+    const g = group as THREE.Object3D & { _baseScale?: THREE.Vector3 };
+    if (g._baseScale === undefined) g._baseScale = group.scale.clone();
+    if (behind < START) {
       if (!group.visible) group.visible = true;
+      if (!group.scale.equals(g._baseScale)) group.scale.copy(g._baseScale);
       return;
     }
-    const t = Math.min(1, (behind + 0.05) / FADE);
-    const opacity = 1 - t;
+    const t = Math.min(1, (behind - START) / FADE);
+    // ease-out cubic: vanishes fast right after the pass, no lingering haze
+    const opacity = Math.pow(1 - t, 3);
     group.visible = opacity > 0.01;
     if (!group.visible) return;
+    // shrink away from the lens as it dissolves
+    const k = 1 - t * 0.35;
+    group.scale.set(g._baseScale.x * k, g._baseScale.y * k, g._baseScale.z * k);
     group.traverse((o) => {
       const mesh = o as THREE.Mesh;
       const m = mesh.material as THREE.Material | THREE.Material[] | undefined;
@@ -1058,6 +1075,7 @@ export class BladeRunEngine {
       }
     });
   }
+
 
   /* ---------------- simulation ---------------- */
 
@@ -1504,29 +1522,66 @@ export class BladeRunEngine {
     // tunnel follows ball so it never ends
     this.tunnel.position.z = this.ballZ - 150;
 
-    // camera: centered behind, leaning slightly toward the ball, + shake
+    // ---- camera rig: critically-damped spring + smoothed aim + speed FOV ----
+    // smooth, low-frequency shake (no per-frame jitter)
     let sx = 0,
       sy = 0;
     if (this.shakeT > 0 && !this.cfg.reducedMotion) {
-      this.shakeT -= dt;
-      const s = this.shakeT * 0.5;
-      sx = (Math.random() - 0.5) * s;
-      sy = (Math.random() - 0.5) * s;
+      this.shakeT = Math.max(0, this.shakeT - dt);
+      const amp = this.shakeT * this.shakeT * 0.9;
+      const t = this.elapsed * 26 + this.shakeSeed;
+      sx = (Math.sin(t) + Math.sin(t * 1.7)) * 0.5 * amp;
+      sy = (Math.cos(t * 1.3) + Math.cos(t * 2.1)) * 0.5 * amp;
     }
+
+    // spring helper: framerate-independent critical damping
+    const spring = (cur: THREE.Vector3, vel: THREE.Vector3, target: THREE.Vector3, omega: number) => {
+      const h = Math.min(dt, 1 / 30);
+      const f = 1 + 2 * h * omega;
+      const oo = omega * omega;
+      const hoo = h * oo;
+      const det = 1 / (f + h * hoo);
+      vel.set(
+        (vel.x * f + (target.x - cur.x) * hoo) * det,
+        (vel.y * f + (target.y - cur.y) * hoo) * det,
+        (vel.z * f + (target.z - cur.z) * hoo) * det,
+      );
+      cur.addScaledVector(vel, h);
+    };
+
+    const smooth = (cur: number, target: number, rate: number) => cur + (target - cur) * (1 - Math.pow(rate, dt));
+
     if (winning && this.chest) {
-      // push in on the chest for the reveal
+      // cinematic push-in on the chest for the reveal
       const cz = this.chest.position.z;
       const k = Math.min(1, this.winT / 1.1);
-      const target = new THREE.Vector3(sx, 0.9 + 0.5 * k, cz + 6.4 - 2.1 * k + sy);
-      this.camera.position.lerp(target, 1 - Math.pow(0.02, dt));
-      this.camera.lookAt(0, this.chest.position.y + 0.7, cz);
-      this.camera.fov += ((this.cfg.reducedMotion ? 72 : 62) - this.camera.fov) * (1 - Math.pow(0.05, dt));
-      this.camera.updateProjectionMatrix();
+      const target = new THREE.Vector3(0, 0.9 + 0.5 * k, cz + 6.4 - 2.1 * k);
+      spring(this.camPos, this.camVel, target, 5.5);
+      this.camLook.lerp(new THREE.Vector3(0, this.chest.position.y + 0.7, cz), 1 - Math.pow(0.02, dt));
+      this.camFov = smooth(this.camFov, this.cfg.reducedMotion ? 72 : 62, 0.05);
+      this.camRoll = smooth(this.camRoll, 0, 0.02);
     } else {
-      const target = new THREE.Vector3(x * 0.25 + sx, y * 0.25 + sy, this.ballZ + 5.2);
-      this.camera.position.lerp(target, 1 - Math.pow(0.0001, dt));
-      this.camera.lookAt(x * 0.15, y * 0.15, this.ballZ - 8);
+      // follow slightly off-centre toward the ball so the tunnel reads in 3D
+      const target = new THREE.Vector3(x * 0.25, y * 0.25, this.ballZ + 5.2);
+      spring(this.camPos, this.camVel, target, this.cfg.reducedMotion ? 14 : 9);
+      this.camLook.lerp(new THREE.Vector3(x * 0.15, y * 0.15, this.ballZ - 8), 1 - Math.pow(0.0008, dt));
+      // speed-reactive FOV gives a sense of acceleration without motion sickness
+      const speedT = Math.max(0, Math.min(1, (this.speed - this.baseSpeed) / 6));
+      const fovTarget = this.cfg.reducedMotion ? 72 : 72 + speedT * 8;
+      this.camFov = smooth(this.camFov, fovTarget, 0.08);
+      // subtle banking from lateral camera velocity
+      const rollTarget = this.cfg.reducedMotion ? 0 : Math.max(-0.09, Math.min(0.09, -this.camVel.x * 0.03));
+      this.camRoll = smooth(this.camRoll, rollTarget, 0.01);
     }
+
+    this.camera.position.set(this.camPos.x + sx, this.camPos.y + sy, this.camPos.z);
+    this.camera.up.set(Math.sin(this.camRoll), Math.cos(this.camRoll), 0);
+    this.camera.lookAt(this.camLook);
+    if (Math.abs(this.camera.fov - this.camFov) > 0.01) {
+      this.camera.fov = this.camFov;
+      this.camera.updateProjectionMatrix();
+    }
+
 
     this.renderer.render(this.scene, this.camera);
   }
