@@ -1042,15 +1042,25 @@ export class BladeRunEngine {
   /** Dissolve objects that have moved behind the ball so they never block the view.
    *  `behind` = object.z - ballZ (positive once the ball is through it). */
   private fadeBehind(group: THREE.Object3D, behind: number) {
-    const FADE = 1.4;
-    if (behind < -0.05) {
+    // start dissolving slightly BEFORE the object reaches the camera plane so it
+    // never smears across the view, and finish quickly.
+    const START = -0.9;
+    const FADE = 1.1;
+    const g = group as THREE.Object3D & { _baseScale?: THREE.Vector3 };
+    if (g._baseScale === undefined) g._baseScale = group.scale.clone();
+    if (behind < START) {
       if (!group.visible) group.visible = true;
+      if (!group.scale.equals(g._baseScale)) group.scale.copy(g._baseScale);
       return;
     }
-    const t = Math.min(1, (behind + 0.05) / FADE);
-    const opacity = 1 - t;
+    const t = Math.min(1, (behind - START) / FADE);
+    // ease-out cubic: vanishes fast right after the pass, no lingering haze
+    const opacity = Math.pow(1 - t, 3);
     group.visible = opacity > 0.01;
     if (!group.visible) return;
+    // shrink away from the lens as it dissolves
+    const k = 1 - t * 0.35;
+    group.scale.set(g._baseScale.x * k, g._baseScale.y * k, g._baseScale.z * k);
     group.traverse((o) => {
       const mesh = o as THREE.Mesh;
       const m = mesh.material as THREE.Material | THREE.Material[] | undefined;
@@ -1065,6 +1075,7 @@ export class BladeRunEngine {
       }
     });
   }
+
 
   /* ---------------- simulation ---------------- */
 
