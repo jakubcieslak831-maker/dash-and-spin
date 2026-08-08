@@ -592,6 +592,13 @@ export class BladeRunEngine {
   private won = false;
   private invulnT = 0;
   private shakeT = 0;
+  /** smoothed camera rig state (critically-damped springs) */
+  private camPos = new THREE.Vector3(0, 0, 5.2);
+  private camVel = new THREE.Vector3();
+  private camLook = new THREE.Vector3(0, 0, -8);
+  private camRoll = 0;
+  private camFov = 72;
+  private shakeSeed = Math.random() * 1000;
   private raf = 0;
   private lastT = 0;
   private finishZ: number;
