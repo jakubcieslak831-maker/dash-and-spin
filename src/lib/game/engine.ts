@@ -1044,8 +1044,8 @@ export class BladeRunEngine {
   private fadeBehind(group: THREE.Object3D, behind: number) {
     // start dissolving slightly BEFORE the object reaches the camera plane so it
     // never smears across the view, and finish quickly.
-    const START = -0.9;
-    const FADE = 1.1;
+    const START = -0.15;
+    const FADE = 1.15;
     const g = group as THREE.Object3D & { _baseScale?: THREE.Vector3 };
     if (g._baseScale === undefined) g._baseScale = group.scale.clone();
     if (behind < START) {
