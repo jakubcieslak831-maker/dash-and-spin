@@ -193,15 +193,50 @@ export const GEM_BUNDLES: GemBundle[] = [
 
 /** Special one-time offers (no-ads, premium 2x coins) — also simulated IAP. */
 export interface OfferDef {
-  id: "removeAds" | "premium" | "starterPack";
+  id: "removeAds" | "premium" | "starterPack" | "vip" | "ultimate" | "goldVault" | "levelSkip";
   title: string;
   subtitle: string;
   priceLabel: string;
   icon: string;
+  /** highlight as the headline deal */
+  best?: boolean;
+  /** small strike-through "was" price for perceived value */
+  wasLabel?: string;
 }
 export const OFFERS: OfferDef[] = [
   { id: "removeAds", title: "Remove Ads", subtitle: "No more interstitials, ever.", priceLabel: "£2.99", icon: "🚫" },
   { id: "premium", title: "Premium Pass", subtitle: "Double all coins earned, forever.", priceLabel: "£4.99", icon: "👑" },
-  { id: "starterPack", title: "Starter Pack", subtitle: "500 coins + 40 gems + Ember skin.", priceLabel: "£1.99", icon: "🎁" },
+  { id: "starterPack", title: "Starter Pack", subtitle: "500 coins + 40 gems + Ember skin.", priceLabel: "£1.99", icon: "🎁", wasLabel: "£5.99" },
+  {
+    id: "vip",
+    title: "BladeRun VIP",
+    subtitle: "No ads + 2× coins + 5 💎 every day you play.",
+    priceLabel: "£4.99 / month",
+    icon: "⭐",
+    best: true,
+  },
+  {
+    id: "goldVault",
+    title: "Gold Vault",
+    subtitle: "25,000 coins — buy any coin cosmetic instantly.",
+    priceLabel: "£6.99",
+    icon: "🏦",
+    wasLabel: "£12.99",
+  },
+  {
+    id: "levelSkip",
+    title: "Level Skip ×5",
+    subtitle: "Stuck? Instantly clear five campaign levels.",
+    priceLabel: "£2.99",
+    icon: "⏭",
+  },
+  {
+    id: "ultimate",
+    title: "Ultimate Bundle",
+    subtitle: "VIP + Premium Pass + 1,200 💎 + 25,000 coins + every limited skin.",
+    priceLabel: "£29.99",
+    icon: "👑",
+    wasLabel: "£64.99",
+  },
 ];
 
