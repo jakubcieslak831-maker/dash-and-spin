@@ -146,7 +146,9 @@ function PlayScreen() {
             audio.play("lose");
             audio.stopMusic();
             if (store.getState().hapticsEnabled && !store.getState().reducedMotion) haptic([60, 40, 80]);
-            setResult({ blades: bladesPassed, coins, time: 0, won: false });
+            setResult({ blades: bladesPassed, coins, time: hud.elapsed, won: false });
+            setSummary({ bestBlade: bladesPassed, coins, nearMisses: nearMisses.current, powerups: powerupsCollected.current, time: hud.elapsed });
+            if (mode === "endless") store.getState().recordTournamentScore(bladesPassed);
             setPhase("dead");
           },
           onWin: (time, coins, totalBlades) => {
