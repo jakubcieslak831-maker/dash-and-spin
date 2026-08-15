@@ -618,8 +618,8 @@ export const useGameStore = create<GameStore>()(
       },
     }),
     {
-      name: "bladerun-save-v2",
-      version: 2,
+      name: "bladerun-save-v3",
+      version: 3,
       migrate: (persisted: unknown): Partial<GameStore> => ({
         ...(persisted as Partial<GameStore>),
         playerXP: 0,
@@ -630,6 +630,8 @@ export const useGameStore = create<GameStore>()(
         claimedSeasonTiers: [],
         vip: false,
         vipLastClaim: null,
+        loadouts: [],
+        tournament: { weekKey: "", bestScore: 0, totalRuns: 0, claimed: false },
       }),
       partialize: (s) => {
         const { sessionDeaths: _omit, ...rest } = s;
