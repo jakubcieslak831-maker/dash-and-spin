@@ -233,6 +233,8 @@ export const useGameStore = create<GameStore>()(
       seasonPremium: false,
       seasonNumber: SEASON_NUMBER,
       claimedSeasonTiers: [],
+      loadouts: [],
+      tournament: { weekKey: "", bestScore: 0, totalRuns: 0, claimed: false },
 
       addCoins: (n) =>
         set((s) => ({
