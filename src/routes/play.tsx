@@ -156,6 +156,7 @@ function PlayScreen() {
             audio.stopMusic();
             if (store.getState().hapticsEnabled) haptic([30, 30, 30, 30, 60]);
             setResult({ blades: totalBlades, coins, time, won: true });
+            setSummary({ bestBlade: totalBlades, coins, nearMisses: nearMisses.current, powerups: powerupsCollected.current, time });
             setPhase("won");
           },
         },
