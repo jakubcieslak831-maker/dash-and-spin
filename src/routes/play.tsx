@@ -172,7 +172,11 @@ function PlayScreen() {
     usedContinue.current = false;
     recorded.current = false;
     doubled.current = false;
+    reviveCount.current = 0;
+    nearMisses.current = 0;
+    powerupsCollected.current = 0;
     setResult(null);
+    setSummary(null);
 
     // brief loading beat, then tutorial (first run) or straight in
     const t = setTimeout(() => {
