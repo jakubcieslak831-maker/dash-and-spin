@@ -51,6 +51,8 @@ function PlayScreen() {
   const recorded = useRef(false);
   const doubled = useRef(false);
   const reviveCount = useRef(0);
+  const nearMisses = useRef(0);
+  const powerupsCollected = useRef(0);
   const [runKey, setRunKey] = useState(0);
   const [summary, setSummary] = useState<{
     bestBlade: number;
