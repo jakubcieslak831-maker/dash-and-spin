@@ -48,6 +48,7 @@ function ShopPage() {
     { id: "trail", label: "Trails" },
     { id: "explosion", label: "Booms" },
     { id: "theme", label: "Themes" },
+    { id: "loadouts", label: "Presets" },
     { id: "gems", label: "💎 Gems" },
   ];
 
