@@ -989,28 +989,38 @@ export class BladeRunEngine {
     const z = -(i + 1) * BLADE_SPACING;
     const spec = this.bladeSpec(i);
 
-    // Boss blade every 10th blade in level mode
-    if (this.cfg.mode === "level" && this.cfg.isBoss && i === this.totalBlades - 1) {
-      const bossSpec: BladeSpec = {
-        gaps: [
-          { start: 0, size: Math.PI * 0.4 },
-          { start: Math.PI, size: Math.PI * 0.4 },
-        ],
-        mode: "linear",
-        speed: Math.min(MAX_BLADE_SPIN, 2.8) * (this.rng() < 0.5 ? 1 : -1),
-        amp: 0,
-        startRot: this.rng() * Math.PI * 2,
-      };
-      this.obstacles.push(new MegaBlade(z, i, bossSpec, this.scene));
-    } else if (this.cfg.mode !== "endless" && i >= 15 && this.rng() < 0.12) {
-      // Laser beam at higher levels
-      this.obstacles.push(new LaserBeam(z, i, spec, this.scene));
-    } else if (this.cfg.mode !== "endless" && i >= 20 && this.rng() < 0.1) {
-      // Hammer swing at higher levels
-      const hammerSpec: BladeSpec = { ...spec, speed: Math.min(2.0, Math.abs(spec.speed)) * (this.rng() < 0.5 ? 1 : -1) };
-      this.obstacles.push(new HammerSwing(z, i, hammerSpec, this.scene));
-    } else {
-      this.obstacles.push(new FanBlade(z, i, spec, this.cfg.theme.blade, this.scene));
+    switch (spec.type) {
+      case "mega": {
+        const bossSpec: BladeSpec = {
+          type: "mega",
+          gaps: [
+            { start: 0, size: Math.PI * 0.4 },
+            { start: Math.PI, size: Math.PI * 0.4 },
+          ],
+          mode: "linear",
+          speed: Math.min(MAX_BLADE_SPIN, 2.8) * (this.rng() < 0.5 ? 1 : -1),
+          amp: 0,
+          startRot: this.rng() * Math.PI * 2,
+        };
+        this.obstacles.push(new MegaBlade(z, i, bossSpec, this.scene));
+        break;
+      }
+      case "laser":
+        this.obstacles.push(new LaserBeam(z, i, spec, this.scene));
+        break;
+      case "hammer": {
+        const hammerSpec: BladeSpec = { ...spec, speed: Math.min(2.0, Math.abs(spec.speed)) * (this.rng() < 0.5 ? 1 : -1) };
+        this.obstacles.push(new HammerSwing(z, i, hammerSpec, this.scene));
+        break;
+      }
+      case "movingGap":
+        this.obstacles.push(new MovingGapBlade(z, i, spec, this.cfg.theme.blade, this.scene));
+        break;
+      case "pulse":
+        this.obstacles.push(new PulseWall(z, i, spec, this.cfg.theme.blade, this.scene));
+        break;
+      default:
+        this.obstacles.push(new FanBlade(z, i, spec, this.cfg.theme.blade, this.scene));
     }
 
     // coin between blades (60% chance), placed at a random angle to reward steering
