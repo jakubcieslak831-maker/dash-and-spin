@@ -21,7 +21,7 @@ export const Route = createFileRoute("/shop")({
   component: ShopPage,
 });
 
-type Tab = "skin" | "trail" | "explosion" | "theme" | "gems";
+type Tab = "skin" | "trail" | "explosion" | "theme" | "gems" | "loadouts";
 
 type Item = {
   id: string;
@@ -48,6 +48,7 @@ function ShopPage() {
     { id: "trail", label: "Trails" },
     { id: "explosion", label: "Booms" },
     { id: "theme", label: "Themes" },
+    { id: "loadouts", label: "Presets" },
     { id: "gems", label: "💎 Gems" },
   ];
 

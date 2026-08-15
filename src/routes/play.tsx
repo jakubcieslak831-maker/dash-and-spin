@@ -9,6 +9,9 @@ import { getLevelConfig, MAX_LEVEL } from "@/lib/game/levels";
 import { AdModal } from "@/components/game/AdModal";
 import { GameButton } from "@/components/game/MenuShell";
 
+const GEM_CONTINUE_COST = 5;
+const VIP_FREE_REVIVES = 1;
+
 export const Route = createFileRoute("/play")({
   validateSearch: (s: Record<string, unknown>): { mode: GameMode; level?: number } => ({
     mode: s.mode === "endless" || s.mode === "daily" ? s.mode : "level",
@@ -47,7 +50,17 @@ function PlayScreen() {
   const usedContinue = useRef(false);
   const recorded = useRef(false);
   const doubled = useRef(false);
+  const reviveCount = useRef(0);
+  const nearMisses = useRef(0);
+  const powerupsCollected = useRef(0);
   const [runKey, setRunKey] = useState(0);
+  const [summary, setSummary] = useState<{
+    bestBlade: number;
+    coins: number;
+    nearMisses: number;
+    powerups: number;
+    time: number;
+  } | null>(null);
 
   const store = useGameStore;
 
@@ -107,6 +120,7 @@ function PlayScreen() {
           onDash: () => {},
           onBladePass: () => audio.play("whoosh"),
           onNearMiss: () => {
+            nearMisses.current += 1;
             audio.play("nearmiss");
             if (store.getState().hapticsEnabled) haptic(12);
           },
@@ -116,7 +130,13 @@ function PlayScreen() {
               if (store.getState().hapticsEnabled) haptic(15);
             }
           },
-          onPowerup: (active) => setPowerups(active),
+          onPowerup: (active) => {
+            // count newly activated powerups by comparing length
+            if (active.length > powerupsCollected.current) {
+              powerupsCollected.current = active.length;
+            }
+            setPowerups(active);
+          },
           onBossIntro: (name) => {
             setBossIntro(name);
             audio.play("levelup");
@@ -126,7 +146,9 @@ function PlayScreen() {
             audio.play("lose");
             audio.stopMusic();
             if (store.getState().hapticsEnabled && !store.getState().reducedMotion) haptic([60, 40, 80]);
-            setResult({ blades: bladesPassed, coins, time: 0, won: false });
+            setResult({ blades: bladesPassed, coins, time: hud.elapsed, won: false });
+            setSummary({ bestBlade: bladesPassed, coins, nearMisses: nearMisses.current, powerups: powerupsCollected.current, time: hud.elapsed });
+            if (mode === "endless") store.getState().recordTournamentScore(bladesPassed);
             setPhase("dead");
           },
           onWin: (time, coins, totalBlades) => {
@@ -134,6 +156,7 @@ function PlayScreen() {
             audio.stopMusic();
             if (store.getState().hapticsEnabled) haptic([30, 30, 30, 30, 60]);
             setResult({ blades: totalBlades, coins, time, won: true });
+            setSummary({ bestBlade: totalBlades, coins, nearMisses: nearMisses.current, powerups: powerupsCollected.current, time });
             setPhase("won");
           },
         },
@@ -152,7 +175,11 @@ function PlayScreen() {
     usedContinue.current = false;
     recorded.current = false;
     doubled.current = false;
+    reviveCount.current = 0;
+    nearMisses.current = 0;
+    powerupsCollected.current = 0;
     setResult(null);
+    setSummary(null);
 
     // brief loading beat, then tutorial (first run) or straight in
     const t = setTimeout(() => {
@@ -423,20 +450,61 @@ function PlayScreen() {
           <div className="mx-6 flex w-full max-w-xs flex-col gap-3 rounded-3xl border border-destructive/40 bg-card p-7 text-center">
             <div className="text-4xl" aria-hidden>💥</div>
             <h2 className="font-display text-2xl font-black uppercase tracking-widest text-destructive">Sliced!</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Stat label={mode === "endless" ? "Score" : "Blade reached"} value={String(result.blades)} />
-              <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
-            </div>
+            {summary && (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <Stat label={mode === "endless" ? "Score" : "Blade reached"} value={String(summary.bestBlade)} />
+                <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
+                <Stat label="Near misses" value={String(summary.nearMisses)} />
+                <Stat label="Power-ups" value={String(summary.powerups)} />
+              </div>
+            )}
             {!usedContinue.current && !recorded.current && (
-              <GameButton
-                variant="gold"
-                onClick={() => {
-                  usedContinue.current = true;
-                  setAd("continue");
-                }}
-              >
-                📺 Watch ad to continue
-              </GameButton>
+              <>
+                <GameButton
+                  variant="gold"
+                  onClick={() => {
+                    usedContinue.current = true;
+                    setAd("continue");
+                  }}
+                >
+                  📺 Watch ad to continue
+                </GameButton>
+                {(() => {
+                  const s = store.getState();
+                  const freeRevivesLeft = s.vip ? Math.max(0, VIP_FREE_REVIVES - reviveCount.current) : 0;
+                  const canGem = s.gems >= GEM_CONTINUE_COST;
+                  if (freeRevivesLeft > 0) {
+                    return (
+                      <GameButton
+                        variant="accent"
+                        onClick={() => {
+                          reviveCount.current += 1;
+                          setPhase("playing");
+                          engineRef.current?.revive();
+                          if (s.musicVolume > 0) audio.startMusic("game");
+                        }}
+                      >
+                        ⭐ VIP free revive ({freeRevivesLeft} left)
+                      </GameButton>
+                    );
+                  }
+                  return (
+                    <GameButton
+                      variant="primary"
+                      disabled={!canGem}
+                      onClick={() => {
+                        if (!store.getState().spendGems(GEM_CONTINUE_COST)) return;
+                        reviveCount.current += 1;
+                        setPhase("playing");
+                        engineRef.current?.revive();
+                        if (store.getState().musicVolume > 0) audio.startMusic("game");
+                      }}
+                    >
+                      💎 Continue for {GEM_CONTINUE_COST} gems
+                    </GameButton>
+                  );
+                })()}
+              </>
             )}
             <GameButton onClick={restart}>Restart</GameButton>
             <GameButton variant="ghost" onClick={goHome}>
@@ -454,10 +522,14 @@ function PlayScreen() {
             <h2 className="text-glow font-display text-2xl font-black uppercase tracking-widest text-primary">
               {mode === "level" ? `Level ${level} Clear!` : "Treasure!"}
             </h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Stat label="Time" value={fmt(result.time)} />
-              <Stat label="Coins" value={`🪙 ${totalEarned}`} />
-            </div>
+            {summary && (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <Stat label="Time" value={fmt(result.time)} />
+                <Stat label="Coins" value={`🪙 ${totalEarned}`} />
+                <Stat label="Near misses" value={String(summary.nearMisses)} />
+                <Stat label="Power-ups" value={String(summary.powerups)} />
+              </div>
+            )}
             {(mode === "level" || mode === "daily") && (
               <div className="rounded-xl border border-gold/40 bg-gold/10 py-2 text-sm font-bold text-gold">
                 💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
