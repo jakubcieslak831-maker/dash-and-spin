@@ -551,6 +551,71 @@ export const useGameStore = create<GameStore>()(
         }
         return count;
       },
+
+      saveLoadout: (name) => {
+        const s = get();
+        const id = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        const loadout: Loadout = {
+          id,
+          name: name.trim() || `Loadout ${s.loadouts.length + 1}`,
+          skin: s.equippedSkin,
+          trail: s.equippedTrail,
+          explosion: s.equippedExplosion,
+          theme: s.equippedTheme,
+        };
+        if (s.loadouts.length >= 8) return null;
+        set((st) => ({ loadouts: [...st.loadouts, loadout] }));
+        return loadout;
+      },
+
+      applyLoadout: (id) => {
+        const s = get();
+        const l = s.loadouts.find((x) => x.id === id);
+        if (!l) return false;
+        set({
+          equippedSkin: l.skin,
+          equippedTrail: l.trail,
+          equippedExplosion: l.explosion,
+          equippedTheme: l.theme,
+        });
+        return true;
+      },
+
+      deleteLoadout: (id) => {
+        set((st) => ({ loadouts: st.loadouts.filter((x) => x.id !== id) }));
+      },
+
+      recordTournamentScore: (score) => {
+        const weekKey = todayKey().slice(0, 7) + "-W" + Math.ceil(parseInt(todayKey().slice(8, 10)) / 7);
+        set((st) => {
+          const t = st.tournament;
+          if (t.weekKey !== weekKey) {
+            return {
+              tournament: { weekKey, bestScore: score, totalRuns: 1, claimed: false },
+            };
+          }
+          return {
+            tournament: {
+              ...t,
+              bestScore: Math.max(t.bestScore, score),
+              totalRuns: t.totalRuns + 1,
+            },
+          };
+        });
+      },
+
+      claimTournamentRewards: () => {
+        const s = get();
+        const t = s.tournament;
+        if (t.claimed || t.bestScore === 0) return { ok: false, gems: 0, coins: 0 };
+        const gems = t.bestScore >= 200 ? 50 : t.bestScore >= 100 ? 25 : t.bestScore >= 50 ? 10 : 0;
+        const coins = t.bestScore >= 200 ? 5000 : t.bestScore >= 100 ? 2000 : t.bestScore >= 50 ? 500 : 0;
+        if (gems === 0 && coins === 0) return { ok: false, gems: 0, coins: 0 };
+        set((st) => ({ tournament: { ...st.tournament, claimed: true } }));
+        if (gems) get().addGems(gems);
+        if (coins) get().addCoins(coins);
+        return { ok: true, gems, coins };
+      },
     }),
     {
       name: "bladerun-save-v2",
