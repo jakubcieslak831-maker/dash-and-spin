@@ -50,7 +50,15 @@ function PlayScreen() {
   const usedContinue = useRef(false);
   const recorded = useRef(false);
   const doubled = useRef(false);
+  const reviveCount = useRef(0);
   const [runKey, setRunKey] = useState(0);
+  const [summary, setSummary] = useState<{
+    bestBlade: number;
+    coins: number;
+    nearMisses: number;
+    powerups: number;
+    time: number;
+  } | null>(null);
 
   const store = useGameStore;
 
