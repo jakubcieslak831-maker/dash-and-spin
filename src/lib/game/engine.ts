@@ -504,6 +504,215 @@ class MegaBlade implements Obstacle {
   }
 }
 
+/**
+ * MovingGapBlade — a fan blade whose safe gap(s) drift around the ring
+ * independently of the blade spin, so players can't camp in one spot.
+ */
+class MovingGapBlade implements Obstacle {
+  group = new THREE.Group();
+  passed = false;
+  private rot: number;
+  private spec: BladeSpec;
+  private gapDrift: number;
+  private driftSpeed: number;
+
+  constructor(
+    public z: number,
+    public index: number,
+    spec: BladeSpec,
+    color: string,
+    scene: THREE.Scene,
+  ) {
+    this.spec = spec;
+    this.rot = spec.startRot;
+    this.gapDrift = 0;
+    this.driftSpeed = spec.speed * 0.55;
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.45,
+      metalness: 0.7,
+      roughness: 0.3,
+      side: THREE.DoubleSide,
+    });
+    const gaps = [...spec.gaps].sort((a, b) => a.start - b.start);
+    for (let i = 0; i < gaps.length; i++) {
+      const gapEnd = gaps[i].start + gaps[i].size;
+      const nextStart = gaps[(i + 1) % gaps.length].start + (i + 1 >= gaps.length ? Math.PI * 2 : 0);
+      const arcLen = nextStart - gapEnd;
+      if (arcLen <= 0.02) continue;
+      const geo = new THREE.RingGeometry(0.4, TUNNEL_RADIUS - 0.05, 24, 1, gapEnd, arcLen);
+      const mesh = new THREE.Mesh(geo, mat);
+      this.group.add(mesh);
+    }
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.4, 0.4, 0.24, 16).rotateX(Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: "#333333", metalness: 0.9, roughness: 0.2 }),
+    );
+    this.group.add(hub);
+    this.group.position.z = z;
+    this.group.rotation.z = this.rot;
+    scene.add(this.group);
+  }
+
+  update(dt: number, elapsed: number) {
+    this.rot += this.spec.speed * dt;
+    this.gapDrift += this.driftSpeed * dt;
+    this.group.rotation.z = this.rot;
+  }
+
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
+  private effectiveGaps() {
+    return this.spec.gaps.map((g) => ({
+      start: g.start + this.gapDrift,
+      size: g.size,
+    }));
+  }
+
+  collides(ballPhi: number): boolean {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.rot) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    const margin = this.ballAngle();
+    for (const g of this.effectiveGaps()) {
+      let gs = g.start % TWO_PI;
+      if (gs < 0) gs += TWO_PI;
+      let rel = (local - gs) % TWO_PI;
+      if (rel < 0) rel += TWO_PI;
+      if (rel > margin && rel < g.size - margin) return false;
+    }
+    return true;
+  }
+
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.rot) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    let best = Math.PI;
+    for (const g of this.effectiveGaps()) {
+      let gs = g.start % TWO_PI;
+      if (gs < 0) gs += TWO_PI;
+      const centre = (gs + g.size / 2) % TWO_PI;
+      let d = Math.abs(local - centre);
+      if (d > Math.PI) d = TWO_PI - d;
+      if (d < best) best = d;
+    }
+    return best;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.group.removeFromParent();
+  }
+}
+
+/**
+ * PulseWall — a solid ring that periodically opens and closes its single gap.
+ * Players must time their pass through the open window.
+ */
+class PulseWall implements Obstacle {
+  group = new THREE.Group();
+  passed = false;
+  private baseAngle: number;
+  private pulseSpeed: number;
+  private phase: number;
+
+  constructor(
+    public z: number,
+    public index: number,
+    spec: BladeSpec,
+    color: string,
+    scene: THREE.Scene,
+  ) {
+    this.baseAngle = spec.startRot;
+    this.pulseSpeed = Math.max(0.8, Math.abs(spec.speed));
+    this.phase = spec.startRot;
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      emissive: color,
+      emissiveIntensity: 0.5,
+      metalness: 0.75,
+      roughness: 0.35,
+      side: THREE.DoubleSide,
+    });
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.45, TUNNEL_RADIUS - 0.05, 32, 1, 0, Math.PI * 2), mat);
+    this.group.add(ring);
+    // indicator light that brightens when the gap is open
+    const indicator = new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 12, 10),
+      new THREE.MeshBasicMaterial({ color: "#00ffaa", transparent: true, opacity: 0.8, blending: THREE.AdditiveBlending, depthWrite: false }),
+    );
+    indicator.position.set((TUNNEL_RADIUS - 0.2) * Math.cos(0), (TUNNEL_RADIUS - 0.2) * Math.sin(0), 0.05);
+    this.group.add(indicator);
+    this.group.position.z = z;
+    this.group.rotation.z = this.baseAngle;
+    scene.add(this.group);
+  }
+
+  update(dt: number, elapsed: number) {
+    this.phase += this.pulseSpeed * dt;
+  }
+
+  private openWindow() {
+    // gap opens for ~0.55 of each pulse cycle
+    const cycle = (this.phase % (Math.PI * 2)) / (Math.PI * 2);
+    return cycle < 0.55;
+  }
+
+  private currentGapSize() {
+    if (!this.openWindow()) return 0;
+    const cycle = (this.phase % (Math.PI * 2)) / (Math.PI * 2);
+    // ramp open/closed for smooth timing
+    const t = cycle / 0.55;
+    const w = Math.sin(t * Math.PI);
+    return Math.max(0.12, w * 1.0);
+  }
+
+  private ballAngle() {
+    return Math.asin(BALL_RADIUS / RIDE_R) * 1.1;
+  }
+
+  collides(ballPhi: number): boolean {
+    const size = this.currentGapSize();
+    if (size <= 0.15) return true;
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.baseAngle) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    const margin = this.ballAngle();
+    // single gap centered at 0 relative to the wall
+    let rel = local % TWO_PI;
+    if (rel < 0) rel += TWO_PI;
+    if (rel > TWO_PI - size / 2) rel -= TWO_PI;
+    return !(Math.abs(rel) < size / 2 - margin);
+  }
+
+  gapDistance(ballPhi: number): number {
+    const TWO_PI = Math.PI * 2;
+    let local = (ballPhi - this.baseAngle) % TWO_PI;
+    if (local < 0) local += TWO_PI;
+    let d = Math.min(local, TWO_PI - local);
+    return d;
+  }
+
+  dispose() {
+    this.group.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        o.geometry.dispose();
+        (o.material as THREE.Material).dispose();
+      }
+    });
+    this.group.removeFromParent();
+  }
+}
+
 /** Builds a floating power-up pickup mesh with a glowing aura. */
 function makePickup(type: PickupType): { mesh: THREE.Mesh; glow: THREE.Mesh } {
   const colors: Record<PickupType, string> = {
