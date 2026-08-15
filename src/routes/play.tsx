@@ -450,20 +450,61 @@ function PlayScreen() {
           <div className="mx-6 flex w-full max-w-xs flex-col gap-3 rounded-3xl border border-destructive/40 bg-card p-7 text-center">
             <div className="text-4xl" aria-hidden>💥</div>
             <h2 className="font-display text-2xl font-black uppercase tracking-widest text-destructive">Sliced!</h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Stat label={mode === "endless" ? "Score" : "Blade reached"} value={String(result.blades)} />
-              <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
-            </div>
+            {summary && (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <Stat label={mode === "endless" ? "Score" : "Blade reached"} value={String(summary.bestBlade)} />
+                <Stat label="Coins earned" value={`🪙 ${totalEarned}`} />
+                <Stat label="Near misses" value={String(summary.nearMisses)} />
+                <Stat label="Power-ups" value={String(summary.powerups)} />
+              </div>
+            )}
             {!usedContinue.current && !recorded.current && (
-              <GameButton
-                variant="gold"
-                onClick={() => {
-                  usedContinue.current = true;
-                  setAd("continue");
-                }}
-              >
-                📺 Watch ad to continue
-              </GameButton>
+              <>
+                <GameButton
+                  variant="gold"
+                  onClick={() => {
+                    usedContinue.current = true;
+                    setAd("continue");
+                  }}
+                >
+                  📺 Watch ad to continue
+                </GameButton>
+                {(() => {
+                  const s = store.getState();
+                  const freeRevivesLeft = s.vip ? Math.max(0, VIP_FREE_REVIVES - reviveCount.current) : 0;
+                  const canGem = s.gems >= GEM_CONTINUE_COST;
+                  if (freeRevivesLeft > 0) {
+                    return (
+                      <GameButton
+                        variant="accent"
+                        onClick={() => {
+                          reviveCount.current += 1;
+                          setPhase("playing");
+                          engineRef.current?.revive();
+                          if (s.musicVolume > 0) audio.startMusic("game");
+                        }}
+                      >
+                        ⭐ VIP free revive ({freeRevivesLeft} left)
+                      </GameButton>
+                    );
+                  }
+                  return (
+                    <GameButton
+                      variant="primary"
+                      disabled={!canGem}
+                      onClick={() => {
+                        if (!store.getState().spendGems(GEM_CONTINUE_COST)) return;
+                        reviveCount.current += 1;
+                        setPhase("playing");
+                        engineRef.current?.revive();
+                        if (store.getState().musicVolume > 0) audio.startMusic("game");
+                      }}
+                    >
+                      💎 Continue for {GEM_CONTINUE_COST} gems
+                    </GameButton>
+                  );
+                })()}
+              </>
             )}
             <GameButton onClick={restart}>Restart</GameButton>
             <GameButton variant="ghost" onClick={goHome}>
