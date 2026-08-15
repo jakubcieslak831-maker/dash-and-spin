@@ -966,7 +966,22 @@ export class BladeRunEngine {
     for (let g = 0; g < gapCount; g++) {
       gaps.push({ start: first + (g * Math.PI * 2) / gapCount, size: gapSize });
     }
-    return { gaps, mode, speed, amp, startRot: r() * Math.PI * 2 };
+
+    // choose obstacle type; higher index/difficulty unlocks exotic types
+    let type: ObstacleType = "fan";
+    const tRoll = r();
+    if (this.cfg.mode === "level" && this.cfg.isBoss && i === this.totalBlades - 1) {
+      type = "mega";
+    } else if (this.cfg.mode !== "endless" && i >= 15 && tRoll < 0.12) {
+      type = "laser";
+    } else if (this.cfg.mode !== "endless" && i >= 20 && tRoll < 0.22) {
+      type = "hammer";
+    } else if (i >= 10 && tRoll < 0.32) {
+      type = "movingGap";
+    } else if (i >= 8 && tRoll < 0.42) {
+      type = "pulse";
+    }
+    return { type, gaps, mode, speed, amp, startRot: r() * Math.PI * 2 };
   }
 
 
