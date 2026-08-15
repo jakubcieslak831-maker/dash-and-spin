@@ -45,6 +45,22 @@ export interface RunRecord {
   date: string;
 }
 
+export interface Loadout {
+  id: string;
+  name: string;
+  skin: string;
+  trail: string;
+  explosion: string;
+  theme: string;
+}
+
+export interface TournamentState {
+  weekKey: string;
+  bestScore: number;
+  totalRuns: number;
+  claimed: boolean;
+}
+
 interface GameStore {
   coins: number;
   gems: number;
@@ -91,6 +107,10 @@ interface GameStore {
   seasonNumber: number;
   /** tiers the player has already claimed (avoids double-claiming) */
   claimedSeasonTiers: number[];
+  /** saved cosmetic loadouts */
+  loadouts: Loadout[];
+  /** weekly endless tournament state */
+  tournament: TournamentState;
 
   addCoins: (n: number) => void;
   spendCoins: (n: number) => boolean;
@@ -133,6 +153,16 @@ interface GameStore {
   setSeasonPremium: () => void;
   /** Number of unclaimed tiers the player has reached. */
   unclaimedSeasonTiers: () => number;
+  /** Save current equipped cosmetics as a loadout. */
+  saveLoadout: (name: string) => Loadout | null;
+  /** Apply a saved loadout. */
+  applyLoadout: (id: string) => boolean;
+  /** Delete a saved loadout. */
+  deleteLoadout: (id: string) => void;
+  /** Record an Endless score toward this week's tournament. */
+  recordTournamentScore: (score: number) => void;
+  /** Claim weekly tournament rewards if available. */
+  claimTournamentRewards: () => { ok: boolean; gems: number; coins: number };
 }
 
 const freshDaily = (): DailyProgress => ({
