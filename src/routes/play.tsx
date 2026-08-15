@@ -120,6 +120,7 @@ function PlayScreen() {
           onDash: () => {},
           onBladePass: () => audio.play("whoosh"),
           onNearMiss: () => {
+            nearMisses.current += 1;
             audio.play("nearmiss");
             if (store.getState().hapticsEnabled) haptic(12);
           },
@@ -129,7 +130,13 @@ function PlayScreen() {
               if (store.getState().hapticsEnabled) haptic(15);
             }
           },
-          onPowerup: (active) => setPowerups(active),
+          onPowerup: (active) => {
+            // count newly activated powerups by comparing length
+            if (active.length > powerupsCollected.current) {
+              powerupsCollected.current = active.length;
+            }
+            setPowerups(active);
+          },
           onBossIntro: (name) => {
             setBossIntro(name);
             audio.play("levelup");
