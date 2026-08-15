@@ -9,6 +9,9 @@ import { getLevelConfig, MAX_LEVEL } from "@/lib/game/levels";
 import { AdModal } from "@/components/game/AdModal";
 import { GameButton } from "@/components/game/MenuShell";
 
+const GEM_CONTINUE_COST = 5;
+const VIP_FREE_REVIVES = 1;
+
 export const Route = createFileRoute("/play")({
   validateSearch: (s: Record<string, unknown>): { mode: GameMode; level?: number } => ({
     mode: s.mode === "endless" || s.mode === "daily" ? s.mode : "level",
