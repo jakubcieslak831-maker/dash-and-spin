@@ -522,10 +522,14 @@ function PlayScreen() {
             <h2 className="text-glow font-display text-2xl font-black uppercase tracking-widest text-primary">
               {mode === "level" ? `Level ${level} Clear!` : "Treasure!"}
             </h2>
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <Stat label="Time" value={fmt(result.time)} />
-              <Stat label="Coins" value={`🪙 ${totalEarned}`} />
-            </div>
+            {summary && (
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <Stat label="Time" value={fmt(result.time)} />
+                <Stat label="Coins" value={`🪙 ${totalEarned}`} />
+                <Stat label="Near misses" value={String(summary.nearMisses)} />
+                <Stat label="Power-ups" value={String(summary.powerups)} />
+              </div>
+            )}
             {(mode === "level" || mode === "daily") && (
               <div className="rounded-xl border border-gold/40 bg-gold/10 py-2 text-sm font-bold text-gold">
                 💎 +{mode === "daily" ? 3 : 1} Gem{mode === "daily" ? "s" : ""} earned!
