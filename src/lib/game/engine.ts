@@ -119,7 +119,10 @@ interface Obstacle {
 /** How a blade rotates over time. */
 type RotMode = "linear" | "oscillate" | "static";
 
+type ObstacleType = "fan" | "laser" | "hammer" | "mega" | "movingGap" | "pulse";
+
 interface BladeSpec {
+  type: ObstacleType;
   gaps: { start: number; size: number }[]; // radians (start relative to blade rotation)
   mode: RotMode;
   speed: number; // rad/s (linear speed, or oscillation angular frequency)
