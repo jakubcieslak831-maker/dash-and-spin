@@ -125,6 +125,8 @@ function MainMenu() {
         <div className="mt-2 flex items-center justify-center gap-4 text-[11px] uppercase tracking-widest text-muted-foreground">
           <SubLink to="/missions">Missions</SubLink>
           <span aria-hidden>·</span>
+          <SubLink to="/tournament">Tournament</SubLink>
+          <span aria-hidden>·</span>
           <SubLink to="/leaderboards">Ranks</SubLink>
           <span aria-hidden>·</span>
           <SubLink to="/achievements">Awards</SubLink>
