@@ -810,6 +810,9 @@ export class BladeRunEngine {
   private camLook = new THREE.Vector3(0, 0, -8);
   private camRoll = 0;
   private camFov = 72;
+  /** how much the camera drifts with the ball around the tunnel (0..0.75) */
+  private camFollow = 0.45;
+
   private shakeSeed = Math.random() * 1000;
   private raf = 0;
   private lastT = 0;
