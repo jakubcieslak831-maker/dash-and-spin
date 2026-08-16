@@ -79,7 +79,7 @@ function ShopPage() {
           : store.equippedTheme;
 
   const act = (item: Item, owned: boolean) => {
-    if (tab === "gems") return;
+    if (tab === "gems" || tab === "loadouts") return;
     if (owned) {
       store.equip(tab, item.id);
       audio.play("click");
