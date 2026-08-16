@@ -810,9 +810,14 @@ export class BladeRunEngine {
   private camLook = new THREE.Vector3(0, 0, -8);
   private camRoll = 0;
   private camFov = 72;
+  /** how much the camera drifts with the ball around the tunnel (0..0.75) */
+  private camFollow = 0.45;
+
   private shakeSeed = Math.random() * 1000;
   private raf = 0;
+  private smoothDt = 1 / 60;
   private lastT = 0;
+
   private finishZ: number;
   private nextEndlessIdx = 0;
   private hudAccum = 0;
@@ -858,6 +863,8 @@ export class BladeRunEngine {
 
 
     this.camera = new THREE.PerspectiveCamera(72, canvas.clientWidth / canvas.clientHeight, 0.1, 120);
+    this.fitCamera();
+
 
     const theme = cfg.theme;
     this.scene.fog = new THREE.Fog(new THREE.Color(theme.fog), 12, 70);
@@ -1219,13 +1226,18 @@ export class BladeRunEngine {
     if (this.running) return;
     this.running = true;
     this.lastT = performance.now();
+    this.smoothDt = 1 / 60;
     const loop = (t: number) => {
       this.raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (t - this.lastT) / 1000);
+      const raw = Math.min(0.05, Math.max(0.001, (t - this.lastT) / 1000));
       this.lastT = t;
+      // smooth frame delta so a single hitched frame doesn't jolt the ball/camera
+      this.smoothDt += (raw - this.smoothDt) * 0.25;
+      const dt = Math.min(0.033, this.smoothDt);
       if (this.running && !this.dead && !this.won) this.step(dt);
       this.render(dt);
     };
+
     this.raf = requestAnimationFrame(loop);
   }
 
@@ -1261,7 +1273,22 @@ export class BladeRunEngine {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.fitCamera();
   }
+
+  /** Work out how much the camera must follow the ball so it always stays on-screen. */
+  private fitCamera() {
+    const aspect = this.camera.aspect || 1;
+    const dist = 5.4;
+    const halfV = Math.tan((this.camera.fov * Math.PI) / 360) * dist;
+    const halfH = halfV * aspect;
+    // keep the ball inside 78% of the smaller half-extent, with room for its radius
+    const safe = Math.max(0.6, Math.min(halfH, halfV) * 0.78 - BALL_RADIUS);
+    // camera offset f * RIDE_R means the ball sits at (1-f) * RIDE_R from center of frame
+    const needed = 1 - safe / RIDE_R;
+    this.camFollow = Math.max(0, Math.min(0.75, needed + 0.06));
+  }
+
 
   dispose() {
     cancelAnimationFrame(this.raf);
@@ -1781,17 +1808,27 @@ export class BladeRunEngine {
       );
       this.camLook.lerp(new THREE.Vector3(0, this.chest.position.y + 0.7, cz), 1 - Math.pow(0.02, dt));
     } else {
-      this.camPos.set(0, 0, lerpN(this.camPos.z, this.ballZ + 5.2, 0.0001));
-      this.camLook.set(0, 0, this.ballZ - 8);
+      // follow the ball partially around the tunnel so it can NEVER leave the frame
+      // on tall/narrow phone screens, where the horizontal FOV is much smaller.
+      const bx = RIDE_R * Math.cos(this.phi);
+      const by = RIDE_R * Math.sin(this.phi);
+      const follow = this.camFollow;
+      this.camPos.set(
+        lerpN(this.camPos.x, bx * follow, 0.0015),
+        lerpN(this.camPos.y, by * follow, 0.0015),
+        lerpN(this.camPos.z, this.ballZ + 5.4, 0.0001),
+      );
+      this.camLook.set(
+        lerpN(this.camLook.x, bx * follow * 0.55, 0.0015),
+        lerpN(this.camLook.y, by * follow * 0.55, 0.0015),
+        this.ballZ - 8,
+      );
     }
 
     this.camera.position.set(this.camPos.x + sx, this.camPos.y + sy, this.camPos.z);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.camLook);
-    if (this.camera.fov !== 72) {
-      this.camera.fov = 72;
-      this.camera.updateProjectionMatrix();
-    }
+
 
 
 
