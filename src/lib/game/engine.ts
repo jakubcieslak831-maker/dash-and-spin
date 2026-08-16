@@ -1261,7 +1261,22 @@ export class BladeRunEngine {
     this.renderer.setSize(w, h, false);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
+    this.fitCamera();
   }
+
+  /** Work out how much the camera must follow the ball so it always stays on-screen. */
+  private fitCamera() {
+    const aspect = this.camera.aspect || 1;
+    const dist = 5.4;
+    const halfV = Math.tan((this.camera.fov * Math.PI) / 360) * dist;
+    const halfH = halfV * aspect;
+    // keep the ball inside 78% of the smaller half-extent, with room for its radius
+    const safe = Math.max(0.6, Math.min(halfH, halfV) * 0.78 - BALL_RADIUS);
+    // camera offset f * RIDE_R means the ball sits at (1-f) * RIDE_R from center of frame
+    const needed = 1 - safe / RIDE_R;
+    this.camFollow = Math.max(0, Math.min(0.75, needed + 0.06));
+  }
+
 
   dispose() {
     cancelAnimationFrame(this.raf);
