@@ -384,3 +384,103 @@ function GemsTab({
 
   );
 }
+
+function LoadoutsTab() {
+  const store = useGameStore();
+  const [name, setName] = useState("");
+  const skin = SKINS.find((s) => s.id === store.equippedSkin);
+  const trail = TRAILS.find((t) => t.id === store.equippedTrail);
+  const explosion = EXPLOSIONS.find((e) => e.id === store.equippedExplosion);
+  const theme = THEMES.find((t) => t.id === store.equippedTheme);
+
+  const save = () => {
+    const l = store.saveLoadout(name);
+    if (l) {
+      audio.play("click");
+      if (store.hapticsEnabled) haptic([20, 30, 20]);
+      setName("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="rounded-2xl border border-border bg-card p-4">
+        <h3 className="font-display text-sm font-bold uppercase tracking-widest">Current equipped</h3>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-sm">
+          <Stat label="Ball" value={skin?.name ?? "—"} color={skin?.color} />
+          <Stat label="Trail" value={trail?.name ?? "—"} color={trail?.color} />
+          <Stat label="Explosion" value={explosion?.name ?? "—"} color={explosion?.colors[0]} />
+          <Stat label="Theme" value={theme?.name ?? "—"} color={theme?.accent} />
+        </div>
+        <div className="mt-3 flex gap-2">
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Loadout name"
+            maxLength={18}
+            className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-primary"
+          />
+          <GameButton onClick={save} disabled={store.loadouts.length >= 8} className="!px-3 !py-2 text-[11px]">
+            Save
+          </GameButton>
+        </div>
+        {store.loadouts.length >= 8 && (
+          <p className="mt-2 text-xs text-destructive">Max 8 loadouts. Delete one to save more.</p>
+        )}
+      </div>
+
+      <div className="space-y-2">
+        {store.loadouts.length === 0 ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">No saved loadouts yet.</p>
+        ) : (
+          store.loadouts.map((l) => (
+            <div key={l.id} className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3">
+              <div>
+                <div className="font-display text-sm font-bold">{l.name}</div>
+                <div className="text-[10px] text-muted-foreground">
+                  {l.skin} · {l.trail} · {l.explosion} · {l.theme}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <GameButton
+                  variant="primary"
+                  className="!px-3 !py-2 text-[11px]"
+                  onClick={() => {
+                    store.applyLoadout(l.id);
+                    audio.play("click");
+                    if (store.hapticsEnabled) haptic([20, 30, 20]);
+                  }}
+                >
+                  Equip
+                </GameButton>
+                <button
+                  onClick={() => {
+                    store.deleteLoadout(l.id);
+                    audio.play("click");
+                  }}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl border border-destructive/40 text-destructive active:scale-95"
+                  aria-label="Delete loadout"
+                >
+                  🗑
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }: { label: string; value: string; color?: string }) {
+  return (
+    <div className="rounded-xl bg-muted px-3 py-2">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="flex items-center gap-1.5 font-display text-sm font-bold">
+        {color && <span className="h-2.5 w-2.5 rounded-full" style={{ background: color }} />}
+        {value}
+      </div>
+    </div>
+  );
+}
+
