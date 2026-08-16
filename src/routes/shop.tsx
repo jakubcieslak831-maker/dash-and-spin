@@ -105,6 +105,11 @@ function ShopPage() {
 
   const items = buildItems();
 
+  const previewSkin = (tab === "skin" && preview) || store.equippedSkin;
+  const previewTrail = (tab === "trail" && preview) || store.equippedTrail;
+  const previewTheme = (tab === "theme" && preview) || store.equippedTheme;
+  const showPreview = hydrated && (tab === "skin" || tab === "trail" || tab === "theme");
+
   return (
     <MenuShell title="Shop">
       <div className="mb-5 grid grid-cols-5 gap-1.5">
@@ -113,6 +118,7 @@ function ShopPage() {
             key={t.id}
             onClick={() => {
               setTab(t.id);
+              setPreview(null);
               audio.play("click");
             }}
             className={`rounded-xl py-2.5 font-display text-[10px] font-bold uppercase tracking-wider transition-colors ${
@@ -123,6 +129,19 @@ function ShopPage() {
           </button>
         ))}
       </div>
+
+      {showPreview && (
+        <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card">
+          <CosmeticPreview skinId={previewSkin} trailId={previewTrail} themeId={previewTheme} className="block h-40 w-full" />
+          <div className="flex items-center justify-between px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            <span>Live preview</span>
+            <span className="text-primary">
+              {tab === "skin" ? skinById(previewSkin).name : tab === "trail" ? trailById(previewTrail).name : themeById(previewTheme).name}
+            </span>
+          </div>
+        </div>
+      )}
+
 
       {!hydrated ? (
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
