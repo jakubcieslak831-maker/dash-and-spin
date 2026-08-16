@@ -863,6 +863,8 @@ export class BladeRunEngine {
 
 
     this.camera = new THREE.PerspectiveCamera(72, canvas.clientWidth / canvas.clientHeight, 0.1, 120);
+    this.fitCamera();
+
 
     const theme = cfg.theme;
     this.scene.fog = new THREE.Fog(new THREE.Color(theme.fog), 12, 70);
