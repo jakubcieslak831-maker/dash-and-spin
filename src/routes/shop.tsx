@@ -3,7 +3,8 @@ import { useState } from "react";
 import { MenuShell, GameButton } from "@/components/game/MenuShell";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES, OFFERS, type OfferDef } from "@/lib/game/cosmetics";
+import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES, OFFERS, skinById, trailById, themeById, type OfferDef } from "@/lib/game/cosmetics";
+import { CosmeticPreview } from "@/components/game/CosmeticPreview";
 import { AdModal } from "@/components/game/AdModal";
 import { PaymentModal } from "@/components/game/PaymentModal";
 import { audio, haptic } from "@/lib/game/audio";
@@ -38,6 +39,7 @@ function ShopPage() {
   const hydrated = useHydrated();
   const [tab, setTab] = useState<Tab>("skin");
   const [ad, setAd] = useState<null | "freegem">(null);
+  const [preview, setPreview] = useState<string | null>(null);
   const [payBundle, setPayBundle] = useState<null | { gems: number; label: string }>(null);
   const [payOffer, setPayOffer] = useState<null | OfferDef>(null);
   const store = useGameStore();
@@ -182,7 +184,12 @@ function ShopPage() {
                     ✦ {item.limitedTag ?? "Limited"}
                   </span>
                 )}
-                <div
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreview(item.id);
+                    audio.play("click");
+                  }}
                   className="relative h-14 w-14 rounded-full border-2 border-border"
                   style={{
                     background: `radial-gradient(circle at 32% 28%, #ffffffcc 0%, ${item.color} 30%, #000000cc 90%)`,
@@ -191,7 +198,7 @@ function ShopPage() {
                   aria-hidden
                 >
                   {item.extra && <span className="flex h-full items-center justify-center text-2xl">{item.extra}</span>}
-                </div>
+                </button>
                 <div className="text-center">
                   <div className="font-display text-sm font-bold">{item.name}</div>
                   {!owned && (
