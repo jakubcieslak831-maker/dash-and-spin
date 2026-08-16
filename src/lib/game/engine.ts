@@ -1222,13 +1222,18 @@ export class BladeRunEngine {
     if (this.running) return;
     this.running = true;
     this.lastT = performance.now();
+    this.smoothDt = 1 / 60;
     const loop = (t: number) => {
       this.raf = requestAnimationFrame(loop);
-      const dt = Math.min(0.05, (t - this.lastT) / 1000);
+      const raw = Math.min(0.05, Math.max(0.001, (t - this.lastT) / 1000));
       this.lastT = t;
+      // smooth frame delta so a single hitched frame doesn't jolt the ball/camera
+      this.smoothDt += (raw - this.smoothDt) * 0.25;
+      const dt = Math.min(0.033, this.smoothDt);
       if (this.running && !this.dead && !this.won) this.step(dt);
       this.render(dt);
     };
+
     this.raf = requestAnimationFrame(loop);
   }
 
