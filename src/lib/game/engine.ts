@@ -815,7 +815,9 @@ export class BladeRunEngine {
 
   private shakeSeed = Math.random() * 1000;
   private raf = 0;
+  private smoothDt = 1 / 60;
   private lastT = 0;
+
   private finishZ: number;
   private nextEndlessIdx = 0;
   private hudAccum = 0;
