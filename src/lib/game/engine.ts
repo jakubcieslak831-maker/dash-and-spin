@@ -1781,17 +1781,27 @@ export class BladeRunEngine {
       );
       this.camLook.lerp(new THREE.Vector3(0, this.chest.position.y + 0.7, cz), 1 - Math.pow(0.02, dt));
     } else {
-      this.camPos.set(0, 0, lerpN(this.camPos.z, this.ballZ + 5.2, 0.0001));
-      this.camLook.set(0, 0, this.ballZ - 8);
+      // follow the ball partially around the tunnel so it can NEVER leave the frame
+      // on tall/narrow phone screens, where the horizontal FOV is much smaller.
+      const bx = RIDE_R * Math.cos(this.phi);
+      const by = RIDE_R * Math.sin(this.phi);
+      const follow = this.camFollow;
+      this.camPos.set(
+        lerpN(this.camPos.x, bx * follow, 0.0015),
+        lerpN(this.camPos.y, by * follow, 0.0015),
+        lerpN(this.camPos.z, this.ballZ + 5.4, 0.0001),
+      );
+      this.camLook.set(
+        lerpN(this.camLook.x, bx * follow * 0.55, 0.0015),
+        lerpN(this.camLook.y, by * follow * 0.55, 0.0015),
+        this.ballZ - 8,
+      );
     }
 
     this.camera.position.set(this.camPos.x + sx, this.camPos.y + sy, this.camPos.z);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(this.camLook);
-    if (this.camera.fov !== 72) {
-      this.camera.fov = 72;
-      this.camera.updateProjectionMatrix();
-    }
+
 
 
 
