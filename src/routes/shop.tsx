@@ -76,7 +76,9 @@ function ShopPage() {
         ? store.equippedTrail
         : tab === "explosion"
           ? store.equippedExplosion
-          : store.equippedTheme;
+          : tab === "theme"
+            ? store.equippedTheme
+            : "";
 
   const act = (item: Item, owned: boolean) => {
     if (tab === "gems" || tab === "loadouts") return;
