@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { getSkin, getTrail, getTheme } from "@/lib/game/cosmetics";
+import { skinById as getSkin, trailById as getTrail, themeById as getTheme } from "@/lib/game/cosmetics";
 
 interface Props {
   skinId: string;
