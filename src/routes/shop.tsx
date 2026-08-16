@@ -142,7 +142,8 @@ function ShopPage() {
             }
           }}
         />
-
+      ) : tab === "loadouts" ? (
+        <LoadoutsTab />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
