@@ -195,7 +195,7 @@ function ShopPage() {
                     background: `radial-gradient(circle at 32% 28%, #ffffffcc 0%, ${item.color} 30%, #000000cc 90%)`,
                     boxShadow: `0 0 22px ${item.color}88, inset 0 -6px 12px #00000099`,
                   }}
-                  aria-hidden
+                  aria-label={`Preview ${item.name}`}
                 >
                   {item.extra && <span className="flex h-full items-center justify-center text-2xl">{item.extra}</span>}
                 </button>
