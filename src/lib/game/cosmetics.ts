@@ -208,7 +208,7 @@ export const THEMES: ThemeDef[] = [
   { id: "obsidian", name: "Obsidian Vault", price: 0, gemPrice: 70, tunnel: "#080008", fog: "#050005", blade: "#ff00aa", accent: "#00ffaa", emoji: "🕳️", limited: true, limitedTag: "Founders" },
   { id: "goldrush", name: "Gold Rush", price: 0, gemPrice: 100, tunnel: "#221408", fog: "#140a05", blade: "#ffd700", accent: "#fff2aa", emoji: "🏆", limited: true, limitedTag: "Founders" },
   { id: "midnightcity", name: "Midnight City", price: 1400, tunnel: "#0d1024", fog: "#05060f", blade: "#4d7cff", accent: "#ff5fa2", emoji: "🌃" },
-  { id: "desert", name: "Dune", price: 1200, tunnel: "#241a0c", fog: "#140e06", blade: "#e0a martian", accent: "#ffd28a", emoji: "🏜️" },
+  { id: "desert", name: "Dune", price: 1200, tunnel: "#241a0c", fog: "#140e06", blade: "#e0a13c", accent: "#ffd28a", emoji: "🏜️" },
   { id: "deepsea", name: "Deep Sea", price: 1600, tunnel: "#04121f", fog: "#010a12", blade: "#00c2ff", accent: "#6ff5d8", emoji: "🐋" },
   { id: "circuitboard", name: "Circuit Board", price: 0, gemPrice: 60, tunnel: "#04140c", fog: "#010a06", blade: "#00ff88", accent: "#aaffcc", emoji: "🔌" },
   { id: "eliteplatinum", name: "Platinum Vault", price: 0, tunnel: "#14161a", fog: "#0a0b0d", blade: "#e6e9ef", accent: "#ffd700", emoji: "🏛️", limited: true, limitedTag: "Elite Club" },
