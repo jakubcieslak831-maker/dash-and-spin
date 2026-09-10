@@ -794,6 +794,8 @@ export class BladeRunEngine {
   private bladesPassed = 0;
   private lastEmitPos = new THREE.Vector3(9999, 9999, 9999);
   private shieldAvailable = false;
+  /** remaining auto-revives granted by the equipped skin */
+  private shieldCharges = 0;
 
   private totalBlades: number;
   private difficulty: number;
@@ -938,7 +940,8 @@ export class BladeRunEngine {
     this.scene.add(this.trailPoints);
 
     // P2W skin effects
-    this.shieldAvailable = cfg.skin.effect === "shield";
+    this.shieldAvailable = cfg.skin.effect === "shield" || cfg.skin.effect === "guardian";
+    this.shieldCharges = cfg.skin.effect === "guardian" ? 2 : cfg.skin.effect === "shield" ? 1 : 0;
 
     this.buildLevel();
 
@@ -1443,6 +1446,7 @@ export class BladeRunEngine {
     const ballY = RIDE_R * Math.sin(this.phi);
     const isMagnetSkin = this.cfg.skin.effect === "magnet";
     const isLucky = this.cfg.skin.effect === "lucky";
+    const isDoubleSkin = this.cfg.skin.effect === "double";
     const hasMagnetPower = this.activePowerups.some((p) => p.type === "magnet");
     const hasDouble = this.activePowerups.some((p) => p.type === "double");
     const isMagnet = isMagnetSkin || hasMagnetPower;
@@ -1462,6 +1466,7 @@ export class BladeRunEngine {
             c.mesh.visible = false;
             let val = isLucky ? 6 : 5;
             if (hasDouble) val *= 2;
+            if (isDoubleSkin) val *= 2;
             val = Math.round(val * comboMult);
             this.coins += val;
             this.combo += 1;
@@ -1545,8 +1550,9 @@ export class BladeRunEngine {
 
   private die() {
     // Shield skin auto-revives once
-    if (this.shieldAvailable) {
-      this.shieldAvailable = false;
+    if (this.shieldAvailable && this.shieldCharges > 0) {
+      this.shieldCharges -= 1;
+      this.shieldAvailable = this.shieldCharges > 0;
       this.invulnT = 2.0;
       return;
     }
