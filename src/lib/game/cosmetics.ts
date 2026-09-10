@@ -120,6 +120,27 @@ export const SKINS: SkinDef[] = [
   { id: "magnetron", name: "Magnetron", price: 0, gemPrice: 90, color: "#ff3355", emissive: "#ff88aa", metalness: 0.95, roughness: 0.08, sparkle: true, effect: "magnet", effectLabel: "Coin magnet" },
   { id: "chronoshift", name: "Chronoshift", price: 0, gemPrice: 110, color: "#88ccff", emissive: "#3366ff", metalness: 0.9, roughness: 0.05, sparkle: true, premium: true, effect: "slowmo", effectLabel: "Slows blades 15%" },
   { id: "midasorb", name: "Midas Orb", price: 0, gemPrice: 140, color: "#ffdd33", emissive: "#ff9900", metalness: 1, roughness: 0.02, sparkle: true, limited: true, limitedTag: "Founders", effect: "lucky", effectLabel: "+1 bonus coin" },
+  // ---- More coin skins ----
+  { id: "copper", name: "Copper", price: 250, color: "#c87533", emissive: "#5a2f10", metalness: 0.9, roughness: 0.3 },
+  { id: "lagoon", name: "Lagoon", price: 450, color: "#19c7c7", emissive: "#046b6b", metalness: 0.6, roughness: 0.2 },
+  { id: "sandstorm", name: "Sandstorm", price: 650, color: "#e8c07a", emissive: "#8a6420", metalness: 0.5, roughness: 0.35 },
+  { id: "cobalt", name: "Cobalt", price: 950, color: "#2b4cff", emissive: "#0a1d8c", metalness: 0.9, roughness: 0.1, sparkle: true },
+  { id: "peppermint", name: "Peppermint", price: 1100, color: "#ff5566", emissive: "#ffffff", metalness: 0.5, roughness: 0.2 },
+  { id: "starlight", name: "Starlight", price: 2600, color: "#f2f6ff", emissive: "#6688ff", metalness: 0.95, roughness: 0.03, sparkle: true },
+  // ---- More gem skins ----
+  { id: "irid", name: "Iridium", price: 0, gemPrice: 45, color: "#c9d6ff", emissive: "#7f5cff", metalness: 1, roughness: 0.03, sparkle: true },
+  { id: "venomorb", name: "Venom Orb", price: 0, gemPrice: 70, color: "#8cff2e", emissive: "#37ff00", metalness: 0.8, roughness: 0.1, sparkle: true },
+  { id: "abyssal", name: "Abyssal", price: 0, gemPrice: 95, color: "#001b3d", emissive: "#00e5ff", metalness: 1, roughness: 0.05, sparkle: true },
+  // ---- Elite Club (monthly subscription only) ----
+  { id: "eliteaether", name: "Aether", price: 0, color: "#dff6ff", emissive: "#00d0ff", metalness: 1, roughness: 0.02, sparkle: true, eliteOnly: true, effect: "magnet", effectLabel: "Coin magnet" },
+  { id: "elitesolarflare", name: "Solar Flare", price: 0, color: "#ffb63d", emissive: "#ff3d00", metalness: 0.95, roughness: 0.06, sparkle: true, eliteOnly: true, effect: "lucky", effectLabel: "+1 bonus coin" },
+  { id: "elitenebula", name: "Nebula", price: 0, color: "#a06bff", emissive: "#ff3ecb", metalness: 0.9, roughness: 0.05, sparkle: true, eliteOnly: true, effect: "slowmo", effectLabel: "Slows blades 15%" },
+  { id: "eliteonyx", name: "Onyx Prime", price: 0, color: "#050505", emissive: "#ff0044", metalness: 1, roughness: 0.01, sparkle: true, eliteOnly: true, effect: "shield", effectLabel: "Auto-revive x1" },
+  // ---- Cash-only power balls (real money, gameplay perks) ----
+  { id: "titanium", name: "Titanium Guardian", price: 0, cashPrice: "£4.99", color: "#b8c6d4", emissive: "#3a6ea5", metalness: 1, roughness: 0.08, sparkle: true, effect: "guardian", effectLabel: "Auto-revive ×2" },
+  { id: "mintprinter", name: "Mint Printer", price: 0, cashPrice: "£5.99", color: "#ffe066", emissive: "#ffa600", metalness: 1, roughness: 0.04, sparkle: true, effect: "double", effectLabel: "All coins ×2" },
+  { id: "singularityorb", name: "Singularity", price: 0, cashPrice: "£7.99", color: "#0b0016", emissive: "#b400ff", metalness: 1, roughness: 0, sparkle: true, effect: "slowmo", effectLabel: "Slows blades 15%" },
+  { id: "magnetar", name: "Magnetar", price: 0, cashPrice: "£3.99", color: "#ff2d6f", emissive: "#ff86b0", metalness: 0.95, roughness: 0.06, sparkle: true, effect: "magnet", effectLabel: "Coin magnet" },
 ];
 
 
@@ -144,6 +165,13 @@ export const TRAILS: TrailDef[] = [
   // ---- Limited edition ----
   { id: "comet", name: "Comet", price: 2200, color: "#7cf9ff", color2: "#ffffff", size: 1.4, limited: true, limitedTag: "Season 1" },
   { id: "stardust", name: "Stardust", price: 0, gemPrice: 75, color: "#ffe0aa", color2: "#ff66cc", size: 1.5, limited: true, limitedTag: "Season 1" },
+  { id: "emberdust", name: "Ember Dust", price: 400, color: "#ff8c2b", color2: "#ffdd88", size: 1.1 },
+  { id: "tidal", name: "Tidal", price: 600, color: "#0af0ff", color2: "#0044ff", size: 1.2 },
+  { id: "bloomtrail", name: "Petalfall", price: 750, color: "#ff9ecb", color2: "#fff0f6", size: 1.15 },
+  { id: "circuit", name: "Circuit", price: 1300, color: "#00ff88", color2: "#003322", size: 1.25 },
+  { id: "eclipsetrail", name: "Eclipse", price: 0, gemPrice: 65, color: "#1a1a2e", color2: "#ff8800", size: 1.45 },
+  { id: "quantum", name: "Quantum", price: 0, gemPrice: 90, color: "#7dfaff", color2: "#ff59f8", size: 1.6, premium: true },
+  { id: "elitehalo", name: "Elite Halo", price: 0, color: "#fff4c2", color2: "#ffb300", size: 1.6, premium: true, limited: true, limitedTag: "Elite Club" },
 ];
 
 export const EXPLOSIONS: ExplosionDef[] = [
@@ -159,6 +187,11 @@ export const EXPLOSIONS: ExplosionDef[] = [
   { id: "phoenix", name: "Phoenix", price: 1500, colors: ["#ff2200", "#ffcc00", "#ff6600"] },
   { id: "prismshatter", name: "Prism Shatter", price: 0, gemPrice: 30, colors: ["#ff00ff", "#00ffff", "#ffff00"] },
   { id: "singularity", name: "Singularity", price: 0, gemPrice: 60, colors: ["#000000", "#8800ff", "#ffffff"], limited: true, limitedTag: "Season 1" },
+  { id: "confetti", name: "Confetti", price: 350, colors: ["#ff4488", "#44ddff", "#ffdd44"] },
+  { id: "emp", name: "EMP Pulse", price: 800, colors: ["#66ccff", "#ffffff", "#0044ff"] },
+  { id: "inkburst", name: "Ink Burst", price: 900, colors: ["#111122", "#5544ff"] },
+  { id: "starfall", name: "Starfall", price: 0, gemPrice: 45, colors: ["#ffffff", "#ffe066", "#88aaff"] },
+  { id: "eliterupture", name: "Elite Rupture", price: 0, gemPrice: 120, colors: ["#ffd700", "#ff00aa", "#ffffff"], limited: true, limitedTag: "Elite Club" },
 ];
 
 export const THEMES: ThemeDef[] = [
@@ -174,6 +207,11 @@ export const THEMES: ThemeDef[] = [
   { id: "sunset", name: "Sunset Drive", price: 1800, tunnel: "#1a0820", fog: "#0f0414", blade: "#ff6688", accent: "#ffcc44", emoji: "🏝️" },
   { id: "obsidian", name: "Obsidian Vault", price: 0, gemPrice: 70, tunnel: "#080008", fog: "#050005", blade: "#ff00aa", accent: "#00ffaa", emoji: "🕳️", limited: true, limitedTag: "Founders" },
   { id: "goldrush", name: "Gold Rush", price: 0, gemPrice: 100, tunnel: "#221408", fog: "#140a05", blade: "#ffd700", accent: "#fff2aa", emoji: "🏆", limited: true, limitedTag: "Founders" },
+  { id: "midnightcity", name: "Midnight City", price: 1400, tunnel: "#0d1024", fog: "#05060f", blade: "#4d7cff", accent: "#ff5fa2", emoji: "🌃" },
+  { id: "desert", name: "Dune", price: 1200, tunnel: "#241a0c", fog: "#140e06", blade: "#e0a martian", accent: "#ffd28a", emoji: "🏜️" },
+  { id: "deepsea", name: "Deep Sea", price: 1600, tunnel: "#04121f", fog: "#010a12", blade: "#00c2ff", accent: "#6ff5d8", emoji: "🐋" },
+  { id: "circuitboard", name: "Circuit Board", price: 0, gemPrice: 60, tunnel: "#04140c", fog: "#010a06", blade: "#00ff88", accent: "#aaffcc", emoji: "🔌" },
+  { id: "eliteplatinum", name: "Platinum Vault", price: 0, tunnel: "#14161a", fog: "#0a0b0d", blade: "#e6e9ef", accent: "#ffd700", emoji: "🏛️", limited: true, limitedTag: "Elite Club" },
 ];
 
 
@@ -247,4 +285,43 @@ export const OFFERS: OfferDef[] = [
     wasLabel: "£64.99",
   },
 ];
+
+/** Monthly subscription tiers (simulated recurring IAP). */
+export interface SubscriptionDef {
+  id: "elite";
+  title: string;
+  subtitle: string;
+  priceLabel: string;
+  icon: string;
+  perks: string[];
+}
+export const SUBSCRIPTIONS: SubscriptionDef[] = [
+  {
+    id: "elite",
+    title: "Elite Club",
+    subtitle: "Every Elite ball, trail, theme and boom — while subscribed.",
+    priceLabel: "£9.99 / month",
+    icon: "🔱",
+    perks: [
+      "All Elite-only cosmetics unlocked",
+      "15 💎 every day you play",
+      "No ads + 2× coins",
+      "New Elite ball drops each month",
+    ],
+  },
+];
+
+/** Skins that are only obtainable with real money. */
+export const CASH_SKINS = SKINS.filter((s) => !!s.cashPrice);
+/** Skins unlocked by the Elite Club subscription. */
+export const ELITE_SKINS = SKINS.filter((s) => s.eliteOnly);
+export const ELITE_TRAILS = TRAILS.filter((t) => t.limitedTag === "Elite Club");
+export const ELITE_THEMES = THEMES.filter((t) => t.limitedTag === "Elite Club");
+export const ELITE_EXPLOSIONS = EXPLOSIONS.filter((e) => e.limitedTag === "Elite Club");
+export const ELITE_IDS = {
+  skin: ELITE_SKINS.map((s) => s.id),
+  trail: ELITE_TRAILS.map((t) => t.id),
+  theme: ELITE_THEMES.map((t) => t.id),
+  explosion: ELITE_EXPLOSIONS.map((e) => e.id),
+};
 
