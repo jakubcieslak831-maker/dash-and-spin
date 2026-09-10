@@ -89,6 +89,10 @@ interface GameStore {
   vip: boolean;
   /** date key of the last claimed VIP daily gem drop */
   vipLastClaim: string | null;
+  /** Elite Club monthly subscription: all elite cosmetics + 15 gems daily */
+  elite: boolean;
+  /** date key of the last claimed Elite daily gem drop */
+  eliteLastClaim: string | null;
   tutorialSeen: boolean;
   records: RunRecord[];
   sessionDeaths: number;
@@ -135,6 +139,14 @@ interface GameStore {
   setVip: (v: boolean) => void;
   /** Claim the VIP daily gem drop (once per day while subscribed). */
   claimVipDaily: () => { ok: boolean; gems: number };
+  /** Start / cancel the Elite Club subscription. */
+  setElite: (v: boolean) => void;
+  /** Claim the Elite Club daily gem drop. */
+  claimEliteDaily: () => { ok: boolean; gems: number };
+  /** Grant any cosmetic outright (real-money purchase, rewards). */
+  grantAny: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => void;
+  /** Whether an item is usable: owned, free, or covered by Elite Club. */
+  isUnlocked: (kind: "skin" | "trail" | "explosion" | "theme", id: string) => boolean;
   /** Instantly unlock the next N campaign levels (paid convenience item). */
   skipLevels: (n: number) => void;
   setTutorialSeen: () => void;
