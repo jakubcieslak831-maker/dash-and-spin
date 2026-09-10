@@ -15,7 +15,11 @@
  * - shield:  start each run with one auto-revive on first crash
  * - lucky:   +1 bonus coin whenever a coin is collected
  */
-export type SkinEffect = "magnet" | "slowmo" | "shield" | "lucky";
+/**
+ * - double:   every coin is worth double
+ * - guardian: start each run with TWO auto-revives
+ */
+export type SkinEffect = "magnet" | "slowmo" | "shield" | "lucky" | "double" | "guardian";
 
 export interface SkinDef {
   id: string;
