@@ -233,6 +233,8 @@ export const useGameStore = create<GameStore>()(
       premium: false,
       vip: false,
       vipLastClaim: null,
+      elite: false,
+      eliteLastClaim: null,
       tutorialSeen: false,
       records: [],
       sessionDeaths: 0,
@@ -483,6 +485,40 @@ export const useGameStore = create<GameStore>()(
         get().addGems(5);
         return { ok: true, gems: 5 };
       },
+      setElite: (v) =>
+        set((s) => ({ elite: v, adsRemoved: v || s.adsRemoved, premium: v || s.premium })),
+      claimEliteDaily: () => {
+        const s = get();
+        if (!s.elite) return { ok: false, gems: 0 };
+        const today = todayKey();
+        if (s.eliteLastClaim === today) return { ok: false, gems: 0 };
+        set({ eliteLastClaim: today });
+        get().addGems(15);
+        return { ok: true, gems: 15 };
+      },
+      grantAny: (kind, id) => {
+        const key = kind === "skin" ? "ownedSkins" : kind === "trail" ? "ownedTrails" : kind === "explosion" ? "ownedExplosions" : "ownedThemes";
+        set((st) => {
+          if ((st[key] as string[]).includes(id)) return {};
+          const owned = [...(st[key] as string[]), id];
+          return {
+            [key]: owned,
+            stats: {
+              ...st.stats,
+              skinsOwned: kind === "skin" ? owned.length : st.stats.skinsOwned,
+              trailsOwned: kind === "trail" ? owned.length : st.stats.trailsOwned,
+              themesOwned: kind === "theme" ? owned.length : st.stats.themesOwned,
+            },
+          } as Partial<GameStore>;
+        });
+      },
+      isUnlocked: (kind, id) => {
+        const s = get();
+        const owned =
+          kind === "skin" ? s.ownedSkins : kind === "trail" ? s.ownedTrails : kind === "explosion" ? s.ownedExplosions : s.ownedThemes;
+        if (owned.includes(id)) return true;
+        return s.elite && ELITE_IDS[kind].includes(id);
+      },
       skipLevels: (n) =>
         set((st) => ({ unlockedLevel: Math.min(MAX_LEVEL, st.unlockedLevel + Math.max(0, n)) })),
       setTutorialSeen: () => set({ tutorialSeen: true }),
@@ -631,9 +667,15 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: "bladerun-save-v3",
-      version: 3,
-      migrate: (persisted: unknown): Partial<GameStore> => ({
-        ...(persisted as Partial<GameStore>),
+      version: 4,
+      migrate: (persisted: unknown, version: number): Partial<GameStore> => {
+        const p = persisted as Partial<GameStore>;
+        // v3 -> v4: introduce the Elite Club subscription fields only.
+        if (version >= 3) return { ...p, elite: p.elite ?? false, eliteLastClaim: p.eliteLastClaim ?? null };
+        return {
+        ...p,
+        elite: false,
+        eliteLastClaim: null,
         playerXP: 0,
         seasonXP: 0,
         seasonTier: 0,
