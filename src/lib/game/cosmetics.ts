@@ -41,6 +41,10 @@ export interface SkinDef {
   effect?: SkinEffect;
   /** Short label describing the effect, e.g. "Coin magnet". */
   effectLabel?: string;
+  /** Real-money only ball — cannot be bought with coins or gems. */
+  cashPrice?: string;
+  /** Unlocked only while the Elite Club subscription is active. */
+  eliteOnly?: boolean;
 }
 
 
