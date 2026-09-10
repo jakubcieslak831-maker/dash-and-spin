@@ -7,6 +7,7 @@ import { persist } from "zustand/middleware";
 import { ACHIEVEMENTS, MISSION_POOL, DAILY_REWARDS, type MissionDef, levelFromXp, xpForLevel, rankForLevel, tierFromSeasonXp, seasonTierReward, SEASON_NUMBER, XP_PER_TIER } from "./progression";
 import { mulberry32, dailySeed, todayKey } from "./rng";
 import { MAX_LEVEL } from "./levels";
+import { ELITE_IDS } from "./cosmetics";
 
 export interface GameStats {
   totalRuns: number;
@@ -685,8 +686,9 @@ export const useGameStore = create<GameStore>()(
         vip: false,
         vipLastClaim: null,
         loadouts: [],
-        tournament: { weekKey: "", bestScore: 0, totalRuns: 0, claimed: false },
-      }),
+          tournament: { weekKey: "", bestScore: 0, totalRuns: 0, claimed: false },
+        };
+      },
       partialize: (s) => {
         const { sessionDeaths: _omit, ...rest } = s;
         return rest as GameStore;
