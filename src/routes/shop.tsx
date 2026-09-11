@@ -3,7 +3,25 @@ import { useState } from "react";
 import { MenuShell, GameButton } from "@/components/game/MenuShell";
 import { useGameStore } from "@/lib/game/store";
 import { useHydrated } from "@/hooks/use-hydrated";
-import { SKINS, TRAILS, EXPLOSIONS, THEMES, GEM_BUNDLES, OFFERS, skinById, trailById, themeById, type OfferDef } from "@/lib/game/cosmetics";
+import {
+  SKINS,
+  TRAILS,
+  EXPLOSIONS,
+  THEMES,
+  GEM_BUNDLES,
+  OFFERS,
+  SUBSCRIPTIONS,
+  CASH_SKINS,
+  ELITE_SKINS,
+  ELITE_TRAILS,
+  ELITE_THEMES,
+  ELITE_EXPLOSIONS,
+  skinById,
+  trailById,
+  themeById,
+  type OfferDef,
+  type SkinDef,
+} from "@/lib/game/cosmetics";
 import { CosmeticPreview } from "@/components/game/CosmeticPreview";
 import { AdModal } from "@/components/game/AdModal";
 import { PaymentModal } from "@/components/game/PaymentModal";
