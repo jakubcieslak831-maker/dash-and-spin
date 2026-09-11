@@ -229,6 +229,15 @@ function ShopPage() {
         />
       ) : tab === "loadouts" ? (
         <LoadoutsTab />
+      ) : tab === "elite" ? (
+        <EliteTab
+          onSubscribe={() => setPaySub(true)}
+          onCash={(s) => setPayCash(s)}
+          onPreview={(id) => {
+            setPreview(id);
+            audio.play("click");
+          }}
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {items.map((item) => {
