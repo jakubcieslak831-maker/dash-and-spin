@@ -357,7 +357,212 @@ function ShopPage() {
           }}
         />
       )}
+      {payCash && (
+        <PaymentModal
+          title={payCash.name}
+          subtitle={`${payCash.effectLabel ?? "Elite power ball"} · yours forever.`}
+          priceLabel={payCash.cashPrice ?? "£4.99"}
+          icon="🔮"
+          onCancel={() => setPayCash(null)}
+          onComplete={() => {
+            store.grantAny("skin", payCash.id);
+            store.equip("skin", payCash.id);
+            audio.play("purchase");
+            if (store.hapticsEnabled) haptic([25, 40, 25]);
+            setPayCash(null);
+          }}
+        />
+      )}
+      {paySub && (
+        <PaymentModal
+          title={SUBSCRIPTIONS[0].title}
+          subtitle={SUBSCRIPTIONS[0].subtitle}
+          priceLabel={SUBSCRIPTIONS[0].priceLabel}
+          icon={SUBSCRIPTIONS[0].icon}
+          onCancel={() => setPaySub(false)}
+          onComplete={() => {
+            store.setElite(true);
+            store.claimEliteDaily();
+            audio.play("purchase");
+            if (store.hapticsEnabled) haptic([30, 40, 30, 40, 60]);
+            setPaySub(false);
+          }}
+        />
+      )}
     </MenuShell>
+  );
+}
+
+function EliteTab({
+  onSubscribe,
+  onCash,
+  onPreview,
+}: {
+  onSubscribe: () => void;
+  onCash: (s: SkinDef) => void;
+  onPreview: (id: string) => void;
+}) {
+  const store = useGameStore();
+  const sub = SUBSCRIPTIONS[0];
+  const today = new Date().toISOString().slice(0, 10);
+  const claimable = store.elite && store.eliteLastClaim !== today;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <div className={`rounded-3xl border p-5 ${store.elite ? "border-gold/60 glow-primary" : "border-primary/50"} bg-card`}>
+        <div className="flex items-center gap-3">
+          <span className="text-3xl" aria-hidden>{sub.icon}</span>
+          <div>
+            <div className="font-display text-lg font-black uppercase tracking-widest">{sub.title}</div>
+            <div className="text-[11px] text-muted-foreground">{sub.subtitle}</div>
+          </div>
+        </div>
+        <ul className="mt-4 space-y-1.5">
+          {sub.perks.map((p) => (
+            <li key={p} className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="text-primary">✦</span>
+              {p}
+            </li>
+          ))}
+        </ul>
+        {store.elite ? (
+          <div className="mt-4 flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-gold">Active</span>
+            <GameButton
+              variant={claimable ? "gold" : "ghost"}
+              className="!px-3 !py-2 text-[11px]"
+              disabled={!claimable}
+              onClick={() => {
+                const r = store.claimEliteDaily();
+                if (r.ok) {
+                  audio.play("gem");
+                  if (store.hapticsEnabled) haptic([25, 30, 25]);
+                }
+              }}
+            >
+              {claimable ? "Claim 15 💎" : "Claimed today"}
+            </GameButton>
+          </div>
+        ) : (
+          <GameButton variant="gold" className="mt-4 w-full !py-3 text-xs" onClick={onSubscribe}>
+            Subscribe · {sub.priceLabel}
+          </GameButton>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Elite Club cosmetics</div>
+        <div className="grid grid-cols-2 gap-3">
+          {ELITE_SKINS.map((s) => {
+            const unlocked = store.isUnlocked("skin", s.id);
+            const isEquipped = store.equippedSkin === s.id;
+            return (
+              <div key={s.id} className={`flex flex-col items-center gap-2 rounded-2xl border p-4 ${isEquipped ? "border-primary/60 glow-primary" : "border-gold/40"} bg-card`}>
+                <button
+                  type="button"
+                  onClick={() => onPreview(s.id)}
+                  className="h-14 w-14 rounded-full border-2 border-border"
+                  style={{
+                    background: `radial-gradient(circle at 32% 28%, #ffffffcc 0%, ${s.color} 30%, #000000cc 90%)`,
+                    boxShadow: `0 0 22px ${s.emissive ?? s.color}88, inset 0 -6px 12px #00000099`,
+                  }}
+                  aria-label={`Preview ${s.name}`}
+                />
+                <div className="text-center">
+                  <div className="font-display text-sm font-bold">{s.name}</div>
+                  <div className="text-[10px] text-primary">{s.effectLabel}</div>
+                </div>
+                <GameButton
+                  variant={isEquipped ? "ghost" : unlocked ? "primary" : "ghost"}
+                  className="w-full !px-2 !py-2 text-[11px]"
+                  disabled={isEquipped || !unlocked}
+                  onClick={() => {
+                    store.equip("skin", s.id);
+                    audio.play("click");
+                  }}
+                >
+                  {isEquipped ? "Equipped" : unlocked ? "Equip" : "🔒 Elite"}
+                </GameButton>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {[
+            ...ELITE_TRAILS.map((t) => ({ kind: "trail" as const, id: t.id, name: t.name, color: t.color })),
+            ...ELITE_THEMES.map((t) => ({ kind: "theme" as const, id: t.id, name: t.name, color: t.accent })),
+            ...ELITE_EXPLOSIONS.map((e) => ({ kind: "explosion" as const, id: e.id, name: e.name, color: e.colors[0] })),
+          ].map((c) => {
+            const unlocked = store.isUnlocked(c.kind, c.id);
+            return (
+              <button
+                key={`${c.kind}-${c.id}`}
+                disabled={!unlocked}
+                onClick={() => {
+                  store.equip(c.kind, c.id);
+                  audio.play("click");
+                }}
+                className={`rounded-xl border px-2 py-3 text-[10px] font-bold uppercase tracking-wider ${
+                  unlocked ? "border-gold/50 text-foreground active:scale-95" : "border-border text-muted-foreground"
+                } bg-card`}
+              >
+                <span className="mb-1 mx-auto block h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                {unlocked ? c.name : `🔒 ${c.name}`}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-2 text-xs uppercase tracking-widest text-muted-foreground">Power balls · buy once, keep forever</div>
+        <div className="flex flex-col gap-2">
+          {CASH_SKINS.map((s) => {
+            const owned = store.ownedSkins.includes(s.id);
+            const isEquipped = store.equippedSkin === s.id;
+            return (
+              <div key={s.id} className="flex items-center justify-between rounded-2xl border border-primary/40 bg-card px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => onPreview(s.id)}
+                  className="flex items-center gap-3 text-left"
+                  aria-label={`Preview ${s.name}`}
+                >
+                  <span
+                    className="h-10 w-10 rounded-full border-2 border-border"
+                    style={{
+                      background: `radial-gradient(circle at 32% 28%, #ffffffcc 0%, ${s.color} 30%, #000000cc 90%)`,
+                      boxShadow: `0 0 18px ${s.emissive ?? s.color}88`,
+                    }}
+                  />
+                  <span>
+                    <span className="block font-display text-sm font-bold">{s.name}</span>
+                    <span className="block text-[11px] text-primary">{s.effectLabel}</span>
+                  </span>
+                </button>
+                <GameButton
+                  variant={owned ? "primary" : "gold"}
+                  className="!px-3 !py-2 text-[11px]"
+                  disabled={isEquipped}
+                  onClick={() => {
+                    if (owned) {
+                      store.equip("skin", s.id);
+                      audio.play("click");
+                    } else onCash(s);
+                  }}
+                >
+                  {isEquipped ? "Equipped" : owned ? "Equip" : s.cashPrice}
+                </GameButton>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-muted-foreground">
+        Subscription and purchases are simulated in this build. Real store billing plugs in at native release.
+      </p>
+    </div>
   );
 }
 
