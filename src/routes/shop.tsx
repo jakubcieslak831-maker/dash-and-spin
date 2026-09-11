@@ -58,8 +58,11 @@ function ShopPage() {
   const [tab, setTab] = useState<Tab>("skin");
   const [ad, setAd] = useState<null | "freegem">(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [fullPreview, setFullPreview] = useState(false);
   const [payBundle, setPayBundle] = useState<null | { gems: number; label: string }>(null);
   const [payOffer, setPayOffer] = useState<null | OfferDef>(null);
+  const [payCash, setPayCash] = useState<null | SkinDef>(null);
+  const [paySub, setPaySub] = useState(false);
   const store = useGameStore();
 
 
@@ -70,13 +73,17 @@ function ShopPage() {
     { id: "theme", label: "Themes" },
     { id: "loadouts", label: "Presets" },
     { id: "gems", label: "💎 Gems" },
+    { id: "elite", label: "🔱 Elite" },
   ];
 
   const buildItems = (): Item[] => {
-    if (tab === "skin") return SKINS.map((s) => ({ id: s.id, name: s.name, price: s.price, gemPrice: s.gemPrice, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }));
-    if (tab === "trail") return TRAILS.map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }));
-    if (tab === "explosion") return EXPLOSIONS.map((e) => ({ id: e.id, name: e.name, price: e.price, gemPrice: e.gemPrice, color: e.colors[0], extra: "", limited: !!e.limited, limitedTag: e.limitedTag }));
-    return THEMES.map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.accent, extra: t.emoji, limited: !!t.limited, limitedTag: t.limitedTag }));
+    if (tab === "skin")
+      return SKINS.filter((s) => !s.cashPrice && !s.eliteOnly).map((s) => ({ id: s.id, name: s.name, price: s.price, gemPrice: s.gemPrice, color: s.color, extra: "", limited: !!s.limited, limitedTag: s.limitedTag }));
+    if (tab === "trail")
+      return TRAILS.filter((t) => t.limitedTag !== "Elite Club").map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.color, extra: "", limited: !!t.limited, limitedTag: t.limitedTag }));
+    if (tab === "explosion")
+      return EXPLOSIONS.filter((e) => e.limitedTag !== "Elite Club").map((e) => ({ id: e.id, name: e.name, price: e.price, gemPrice: e.gemPrice, color: e.colors[0], extra: "", limited: !!e.limited, limitedTag: e.limitedTag }));
+    return THEMES.filter((t) => t.limitedTag !== "Elite Club").map((t) => ({ id: t.id, name: t.name, price: t.price, gemPrice: t.gemPrice, color: t.accent, extra: t.emoji, limited: !!t.limited, limitedTag: t.limitedTag }));
   };
 
   const ownedKey =
