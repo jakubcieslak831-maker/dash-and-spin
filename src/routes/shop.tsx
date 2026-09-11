@@ -235,6 +235,7 @@ function ShopPage() {
           onCash={(s) => setPayCash(s)}
           onPreview={(id) => {
             setPreview(id);
+            setFullPreview(true);
             audio.play("click");
           }}
         />
