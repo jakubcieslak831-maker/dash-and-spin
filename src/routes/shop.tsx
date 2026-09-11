@@ -108,7 +108,7 @@ function ShopPage() {
             : "";
 
   const act = (item: Item, owned: boolean) => {
-    if (tab === "gems" || tab === "loadouts") return;
+    if (tab === "gems" || tab === "loadouts" || tab === "elite") return;
     if (owned) {
       store.equip(tab, item.id);
       audio.play("click");
@@ -139,7 +139,7 @@ function ShopPage() {
 
   return (
     <MenuShell title="Shop">
-      <div className="mb-5 grid grid-cols-5 gap-1.5">
+      <div className="mb-5 grid grid-cols-4 gap-1.5">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -161,10 +161,49 @@ function ShopPage() {
         <div className="mb-5 overflow-hidden rounded-2xl border border-border bg-card">
           <CosmeticPreview skinId={previewSkin} trailId={previewTrail} themeId={previewTheme} className="block h-40 w-full" />
           <div className="flex items-center justify-between px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            <span>Live preview</span>
             <span className="text-primary">
               {tab === "skin" ? skinById(previewSkin).name : tab === "trail" ? trailById(previewTrail).name : themeById(previewTheme).name}
             </span>
+            <button
+              onClick={() => {
+                setFullPreview(true);
+                audio.play("click");
+              }}
+              className="rounded-full border border-primary/50 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary active:scale-95"
+            >
+              ⛶ Try it in-game
+            </button>
+          </div>
+        </div>
+      )}
+
+      {fullPreview && (
+        <div className="fixed inset-0 z-50 bg-background">
+          <CosmeticPreview
+            full
+            skinId={previewSkin}
+            trailId={previewTrail}
+            themeId={previewTheme}
+            explosionId={store.equippedExplosion}
+            className="block h-full w-full"
+          />
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4">
+            <div className="rounded-2xl border border-border bg-card/80 px-3 py-2 backdrop-blur">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Full preview</div>
+              <div className="font-display text-sm font-bold">
+                {skinById(previewSkin).name} · {trailById(previewTrail).name}
+              </div>
+              <div className="text-[10px] text-muted-foreground">{themeById(previewTheme).name} tunnel</div>
+            </div>
+            <button
+              onClick={() => {
+                setFullPreview(false);
+                audio.play("click");
+              }}
+              className="pointer-events-auto rounded-full border border-border bg-card px-4 py-2 font-display text-xs font-bold uppercase tracking-widest active:scale-95"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}
