@@ -132,7 +132,7 @@ function ShopPage() {
 
   const items = buildItems();
 
-  const previewSkin = (tab === "skin" && preview) || store.equippedSkin;
+  const previewSkin = ((tab === "skin" || tab === "elite") && preview) || store.equippedSkin;
   const previewTrail = (tab === "trail" && preview) || store.equippedTrail;
   const previewTheme = (tab === "theme" && preview) || store.equippedTheme;
   const showPreview = hydrated && (tab === "skin" || tab === "trail" || tab === "theme");
