@@ -40,7 +40,7 @@ export const Route = createFileRoute("/shop")({
   component: ShopPage,
 });
 
-type Tab = "skin" | "trail" | "explosion" | "theme" | "gems" | "loadouts";
+type Tab = "skin" | "trail" | "explosion" | "theme" | "gems" | "loadouts" | "elite";
 
 type Item = {
   id: string;
